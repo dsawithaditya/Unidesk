@@ -120,13 +120,13 @@ const App = (() => {
     clearTimeout(toast._t);
     toast._t = setTimeout(() => t.classList.add('opacity-0', '-translate-y-2'), 2400);
   }
-  const heading = (title, sub, extra = '', eyebrow = 'UNIDESK') => `<div class="flex flex-wrap items-end justify-between gap-4 mb-8">
+  const heading = (title, sub, extra = '', eyebrow = 'UNIDESK') => `<div class="flex flex-wrap items-end justify-between gap-6 mb-12 sm:mb-14">
     <div>
-      <div class="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-[#a3ff12] mb-2 font-semibold">
-        <span class="w-1.5 h-1.5 rounded-full bg-[#a3ff12] shadow-[0_0_8px_#a3ff12]"></span>// ${eyebrow}
+      <div class="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-[#a3ff12] mb-3 font-semibold">
+        <span class="w-2 h-2 rounded-full bg-[#a3ff12] shadow-[0_0_10px_#a3ff12]"></span>// ${eyebrow}
       </div>
       <h1 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white font-['Outfit']">${title}<span class="text-[#a3ff12]">.</span></h1>
-      <p class="text-gray-400 mt-2 text-base sm:text-lg max-w-2xl font-normal leading-relaxed">${sub}</p>
+      <p class="text-gray-400 mt-3 text-base sm:text-lg max-w-2xl font-normal leading-relaxed">${sub}</p>
     </div>
     ${extra}
   </div>`;
@@ -358,72 +358,74 @@ const App = (() => {
   function pageReport(params) {
     if (params.get('cat') && CATEGORIES.some(c => c.name === params.get('cat'))) ui.draftCat = params.get('cat');
     const savedName = localStorage.getItem('unidesk_name') || localStorage.getItem('campuscare_name') || '';
-    return `${heading('Report an issue', 'Tell us what is wrong and where. We will route it to the right team.', '', 'SUBMIT TICKET')}
-    <form id="report-form" onsubmit="App.submitReport(event)" novalidate class="w-full bg-card rounded-3xl p-6 sm:p-8 md:p-10 space-y-8 border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
-      <div>
-        <div class="flex items-center justify-between mb-3.5">
-          <label class="block font-bold text-base text-white tracking-tight">1. What type of issue is it?</label>
-          <span class="text-xs text-[#a3ff12] font-mono">// Select category</span>
-        </div>
-        <div id="cat-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">${CATEGORIES.map(k => catBtn(k)).join('')}</div>
-        <p id="e-cat" class="hidden text-red-400 text-sm mt-2 font-medium">Please choose a category.</p>
-      </div>
-      <div>
-        <div class="flex items-center justify-between mb-3.5">
-          <label class="block font-bold text-base text-white tracking-tight">2. How urgent is it?</label>
-          <span class="text-xs text-gray-400 font-mono">Default: Medium</span>
-        </div>
-        <div id="prio-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3">${PRIORITIES.map(p => prioBtn(p)).join('')}</div>
-      </div>
-      <div class="space-y-5">
-        <label class="block font-bold text-base text-white tracking-tight">3. Incident Details</label>
+    return `<div class="max-w-5xl mx-auto">
+      ${heading('Report an issue', 'Tell us what is wrong and where. We will route it to the right team.', '', 'SUBMIT TICKET')}
+      <form id="report-form" onsubmit="App.submitReport(event)" novalidate class="w-full bg-card rounded-3xl p-8 sm:p-12 md:p-14 space-y-12 border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Issue Title</label>
-          <input id="f-title" class="field text-base !py-3.5" maxlength="80" placeholder="Short title, e.g. Projector not turning on in LH-3">
-          <p id="e-title" class="hidden text-red-400 text-sm mt-1.5 font-medium">Title needs at least 5 characters.</p>
+          <div class="flex items-center justify-between mb-5">
+            <label class="block font-bold text-lg text-white tracking-tight">1. What type of issue is it?</label>
+            <span class="text-xs text-[#a3ff12] font-mono tracking-wider">// Select category</span>
+          </div>
+          <div id="cat-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4">${CATEGORIES.map(k => catBtn(k)).join('')}</div>
+          <p id="e-cat" class="hidden text-red-400 text-sm mt-3 font-medium">Please choose a category.</p>
         </div>
-        <div class="grid sm:grid-cols-2 gap-5">
+        <div class="pt-10 border-t border-white/10">
+          <div class="flex items-center justify-between mb-5">
+            <label class="block font-bold text-lg text-white tracking-tight">2. How urgent is it?</label>
+            <span class="text-xs text-gray-400 font-mono tracking-wider">Default: Medium</span>
+          </div>
+          <div id="prio-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-4">${PRIORITIES.map(p => prioBtn(p)).join('')}</div>
+        </div>
+        <div class="pt-10 border-t border-white/10 space-y-7">
+          <label class="block font-bold text-lg text-white tracking-tight mb-2">3. Incident Details</label>
           <div>
-            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Specific Location</label>
-            <div class="relative">
-              <i data-lucide="map-pin" class="w-4 h-4 text-[#a3ff12] absolute left-3.5 top-4"></i>
-              <input id="f-loc" class="field !pl-10 text-base !py-3.5" placeholder="e.g. Block C, Room 204 or North Gate Pathway">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Issue Title</label>
+            <input id="f-title" class="field text-base !py-4 !px-5" maxlength="80" placeholder="Short title, e.g. Projector not turning on in LH-3">
+            <p id="e-title" class="hidden text-red-400 text-sm mt-2 font-medium">Title needs at least 5 characters.</p>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Specific Location</label>
+              <div class="relative">
+                <i data-lucide="map-pin" class="w-4 h-4 text-[#a3ff12] absolute left-4 top-4.5"></i>
+                <input id="f-loc" class="field !pl-11 text-base !py-4 !px-5" placeholder="e.g. Block C, Room 204 or North Gate Pathway">
+              </div>
+              <p id="e-loc" class="hidden text-red-400 text-sm mt-2 font-medium">Location is required.</p>
             </div>
-            <p id="e-loc" class="hidden text-red-400 text-sm mt-1.5 font-medium">Location is required.</p>
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Contact Name</label>
+              <div class="relative">
+                <i data-lucide="user" class="w-4 h-4 text-gray-400 absolute left-4 top-4.5"></i>
+                <input id="f-name" class="field !pl-11 text-base !py-4 !px-5" placeholder="Your name" value="${esc(savedName)}">
+              </div>
+              <p id="e-name" class="hidden text-red-400 text-sm mt-2 font-medium">Contact name is required.</p>
+            </div>
           </div>
           <div>
-            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Contact Name</label>
-            <div class="relative">
-              <i data-lucide="user" class="w-4 h-4 text-gray-400 absolute left-3.5 top-4"></i>
-              <input id="f-name" class="field !pl-10 text-base !py-3.5" placeholder="Your name" value="${esc(savedName)}">
-            </div>
-            <p id="e-name" class="hidden text-red-400 text-sm mt-1.5 font-medium">Contact name is required.</p>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Description</label>
+            <textarea id="f-desc" rows="6" maxlength="500" class="field resize-none text-base leading-relaxed !p-5" placeholder="Describe the problem in detail. What happened, since when, who is affected?" oninput="document.getElementById('desc-count').textContent=this.value.length"></textarea>
+            <div class="flex justify-between mt-2.5"><p id="e-desc" class="hidden text-red-400 text-sm font-medium">Description needs at least 10 characters.</p><span class="text-xs text-gray-500 font-mono ml-auto"><span id="desc-count">0</span>/500</span></div>
           </div>
         </div>
-        <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Description</label>
-          <textarea id="f-desc" rows="6" maxlength="500" class="field resize-none text-base leading-relaxed" placeholder="Describe the problem in detail. What happened, since when, who is affected?" oninput="document.getElementById('desc-count').textContent=this.value.length"></textarea>
-          <div class="flex justify-between mt-1.5"><p id="e-desc" class="hidden text-red-400 text-sm font-medium">Description needs at least 10 characters.</p><span class="text-xs text-gray-500 font-mono ml-auto"><span id="desc-count">0</span>/500</span></div>
+        <div class="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <span class="text-xs text-gray-400 flex items-center gap-2.5"><i data-lucide="shield-check" class="w-4 h-4 text-[#a3ff12]"></i>Directly routed to the corresponding campus department</span>
+          <button class="btn-primary !py-4 !px-10 text-base font-bold w-full sm:w-auto shadow-xl" type="submit"><i data-lucide="send" class="w-4 h-4 stroke-[2.5]"></i>Submit Request</button>
         </div>
-      </div>
-      <div class="pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <span class="text-xs text-gray-400 flex items-center gap-2"><i data-lucide="shield-check" class="w-4 h-4 text-[#a3ff12]"></i>Directly routed to the corresponding campus department</span>
-        <button class="btn-primary !py-3.5 !px-8 text-base font-bold w-full sm:w-auto" type="submit"><i data-lucide="send" class="w-4 h-4"></i>Submit Request</button>
-      </div>
-    </form>`;
+      </form>
+    </div>`;
   }
   function catBtn(k) {
     const on = ui.draftCat === k.name;
-    return `<button type="button" data-cat="${k.name}" onclick="App.pickCat('${k.name}')" class="text-left rounded-2xl p-4 border transition-all ${on ? 'border-[#a3ff12] bg-[#a3ff12]/15 text-white ring-2 ring-[#a3ff12]/30 shadow-[0_0_24px_rgba(163,255,18,0.2)]' : 'border-white/10 bg-white/[0.03] text-gray-300 hover:border-[#a3ff12]/40 hover:bg-white/[0.06]'} flex flex-col justify-between min-h-[96px] group">
-      <i data-lucide="${k.icon}" class="w-5 h-5 ${on ? 'text-[#a3ff12]' : 'text-gray-400 group-hover:text-[#a3ff12]'} mb-2 transition"></i>
+    return `<button type="button" data-cat="${k.name}" onclick="App.pickCat('${k.name}')" class="text-left rounded-2xl p-4 sm:p-5 border transition-all ${on ? 'border-[#a3ff12] bg-[#a3ff12]/15 text-white ring-2 ring-[#a3ff12]/30 shadow-[0_0_24px_rgba(163,255,18,0.2)]' : 'border-white/10 bg-white/[0.03] text-gray-300 hover:border-[#a3ff12]/40 hover:bg-white/[0.06]'} flex flex-col justify-between min-h-[105px] group">
+      <i data-lucide="${k.icon}" class="w-5 h-5 ${on ? 'text-[#a3ff12]' : 'text-gray-400 group-hover:text-[#a3ff12]'} mb-2.5 transition"></i>
       <div>
-        <div class="text-sm font-bold">${k.name}</div>
-        <div class="text-[11px] text-gray-400 mt-0.5 line-clamp-1">${k.desc}</div>
+        <div class="text-sm font-bold tracking-tight">${k.name}</div>
+        <div class="text-[11px] text-gray-400 mt-1 line-clamp-1">${k.desc}</div>
       </div></button>`;
   }
   function prioBtn(p) {
     const on = ui.draftPrio === p;
-    return `<button type="button" onclick="App.pickPrio('${p}')" class="rounded-2xl py-3 text-sm font-bold border transition-all ${on ? 'border-[#a3ff12] bg-[#a3ff12]/20 text-[#a3ff12] ring-2 ring-[#a3ff12]/30 shadow-[0_0_20px_rgba(163,255,18,0.2)]' : 'border-white/10 bg-white/[0.03] text-gray-300 hover:border-[#a3ff12]/40 hover:text-white'}">${p}</button>`;
+    return `<button type="button" onclick="App.pickPrio('${p}')" class="rounded-2xl py-3.5 px-4 text-sm font-bold border transition-all ${on ? 'border-[#a3ff12] bg-[#a3ff12]/20 text-[#a3ff12] ring-2 ring-[#a3ff12]/30 shadow-[0_0_20px_rgba(163,255,18,0.2)]' : 'border-white/10 bg-white/[0.03] text-gray-300 hover:border-[#a3ff12]/40 hover:text-white'}">${p}</button>`;
   }
 
   function pageRequests() {
