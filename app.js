@@ -497,13 +497,15 @@ const App = (() => {
     <div class="about-services-stack">
       <div class="about-scroll-track">
         <section id="about" class="about-panel">
-          <div class="about-statement-wrap">
-            <div class="about-eyebrow"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-[#a3ff12]"></i> // UNIDESK CAPABILITIES &amp; OPERATIONS</div>
+          <div class="zen-orb" style="width:380px;height:380px;right:12%;top:18%;opacity:0.12;"></div>
+          <div class="zen-orb" style="width:340px;height:340px;left:8%;bottom:22%;opacity:0.1;"></div>
+          <div class="about-statement-wrap relative z-10">
+            <div class="about-eyebrow"><span class="pulse-dot"></span> // UNIDESK CAPABILITIES &amp; OPERATIONS</div>
             <p class="about-statement" id="about-statement">
               ${statementWords.map(w => `<span class="about-word ${w === 'UNIDESK' ? 'highlight' : ''}">${w}</span>`).join(' ')}
             </p>
           </div>
-          <div id="capabilities" class="capabilities-wrap" role="region" aria-label="Campus resolution capabilities">
+          <div id="capabilities" class="capabilities-wrap relative z-10" role="region" aria-label="Campus resolution capabilities">
             <div class="capability-lanes">
               ${lanesHtml}
             </div>
@@ -1113,10 +1115,10 @@ const App = (() => {
             w.style.transform = 'translateY(0) scale(1)';
           } else {
             const dist = idx - activeCount;
-            const blurVal = Math.min(14, 3.5 + dist * 1.6);
+            const blurVal = Math.min(8, 2 + dist * 1.0);
             w.style.filter = `blur(${blurVal.toFixed(1)}px)`;
-            w.style.opacity = Math.max(0.14, (0.24 - dist * 0.018)).toFixed(2);
-            w.style.transform = `translateY(${Math.min(12, 3 + dist * 1.3).toFixed(1)}px) scale(0.96)`;
+            w.style.opacity = Math.max(0.28, (0.42 - dist * 0.015)).toFixed(2);
+            w.style.transform = `translateY(${Math.min(8, 2 + dist * 0.9).toFixed(1)}px) scale(0.98)`;
           }
         });
       }
