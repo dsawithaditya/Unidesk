@@ -1,8 +1,11 @@
-/* Unidesk Helpdesk - multi-page app (hash routing, localStorage persistence) */
+/* Unidesk Campus Helpdesk - Enterprise Architecture & Production Optimization */
 const App = (() => {
-  const KEY = 'unidesk_tickets_v1';
-  const STAFF_KEY = 'unidesk_staff';
-  const STAFF_PIN = '1234'; // demo only
+  const KEY = 'unidesk_tickets_v2';
+  const TOKEN_KEY = 'unidesk_staff_token';
+  const SALT = 'unidesk_2026_salt_';
+  // Salted SHA-256 hash of 'unidesk_2026_salt_1234'
+  const PIN_HASH = 'a3807912ae50bac23ed29e4053be177c74bcf98a30d1235d59efa88005431962';
+
   const STATUSES = ['Open', 'In Progress', 'Resolved'];
   const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
   const CATEGORIES = [
@@ -108,17 +111,28 @@ const App = (() => {
 
   const ago = mins => new Date(Date.now() - mins * 60000).toISOString();
 
-  /* Tactile UI Feedback & Sound Generator */
+  /* ============ SINGLETON AUDIO SYNTHESIZER ============ */
+  let sharedAudioCtx = null;
+  function getAudioContext() {
+    if (!sharedAudioCtx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) sharedAudioCtx = new AudioCtx();
+    }
+    if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  }
+
   function playTone(type) {
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      if (type === 'click') {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      if (type === 'click' || type === 'pop') {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.frequency.setValueAtTime(800, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.04);
+        osc.frequency.setValueAtTime(type === 'pop' ? 620 : 800, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(type === 'pop' ? 880 : 400, ctx.currentTime + 0.04);
         gain.gain.setValueAtTime(0.04, ctx.currentTime);
         gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.04);
         osc.connect(gain);
@@ -138,13 +152,18 @@ const App = (() => {
           osc.stop(ctx.currentTime + i * 0.07 + 0.23);
         });
       }
-    } catch(e) {}
+    } catch (e) { }
   }
 
-  /* Confetti celebration burst */
+  /* ============ CONFETTI WITH ACTIVE RAF CLEANUP ============ */
+  let confettiRafId = null;
   function launchConfetti() {
     const canvas = document.getElementById('confetti-canvas');
     if (!canvas) return;
+    if (confettiRafId) {
+      cancelAnimationFrame(confettiRafId);
+      confettiRafId = null;
+    }
     canvas.classList.remove('hidden');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -182,10 +201,14 @@ const App = (() => {
         }
       });
       frame++;
-      if (alive && frame < 80) requestAnimationFrame(step);
-      else canvas.classList.add('hidden');
+      if (alive && frame < 80) {
+        confettiRafId = requestAnimationFrame(step);
+      } else {
+        canvas.classList.add('hidden');
+        confettiRafId = null;
+      }
     }
-    requestAnimationFrame(step);
+    confettiRafId = requestAnimationFrame(step);
   }
 
   function getSlaInfo(t) {
@@ -196,7 +219,7 @@ const App = (() => {
       const duration = Math.max(1, Math.round((end - new Date(t.createdAt)) / 60000));
       const met = duration <= limit;
       return {
-        text: met ? `SLA Met (${duration >= 60 ? Math.round(duration/60) + 'h' : duration + 'm'})` : 'SLA Exceeded',
+        text: met ? `SLA Met (${duration >= 60 ? Math.round(duration / 60) + 'h' : duration + 'm'})` : 'SLA Exceeded',
         cls: met ? 'sla-normal' : 'sla-breached',
         icon: met ? 'check-circle' : 'alert-circle'
       };
@@ -205,7 +228,7 @@ const App = (() => {
     if (remaining < 0) {
       const overdueM = Math.abs(remaining);
       return {
-        text: `Overdue by ${overdueM >= 60 ? Math.round(overdueM/60) + 'h' : overdueM + 'm'}`,
+        text: `Overdue by ${overdueM >= 60 ? Math.round(overdueM / 60) + 'h' : overdueM + 'm'}`,
         cls: 'sla-breached',
         icon: 'clock'
       };
@@ -216,12 +239,13 @@ const App = (() => {
     return { text: `SLA: ${Math.round(remaining / 60)}h target`, cls: 'sla-normal', icon: 'shield-check' };
   }
 
+  /* Optimized image compression with canvas */
   function compressImage(file, callback) {
     const reader = new FileReader();
     reader.onload = e => {
       const img = new Image();
       img.onload = () => {
-        const maxDim = 800;
+        const maxDim = 640; // optimized max dimension
         let w = img.width;
         let h = img.height;
         if (w > maxDim || h > maxDim) {
@@ -233,7 +257,7 @@ const App = (() => {
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
         callback(dataUrl);
       };
       img.src = e.target.result;
@@ -241,6 +265,7 @@ const App = (() => {
     reader.readAsDataURL(file);
   }
 
+  /* Client-side duplicate detection */
   function checkDuplicates(query, loc) {
     const cleanQ = (query || '').toLowerCase().trim();
     const cleanLoc = (loc || '').toLowerCase().trim();
@@ -254,6 +279,70 @@ const App = (() => {
     }).slice(0, 2);
   }
 
+  /* ============ INDEXEDDB STORAGE SUBSYSTEM ============ */
+  const DB = {
+    dbName: 'UnideskDB',
+    storeName: 'tickets',
+    version: 1,
+    dbPromise: null,
+
+    init() {
+      if (this.dbPromise) return this.dbPromise;
+      this.dbPromise = new Promise((resolve) => {
+        if (!window.indexedDB) {
+          resolve(null);
+          return;
+        }
+        const req = indexedDB.open(this.dbName, this.version);
+        req.onupgradeneeded = e => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(this.storeName)) {
+            db.createObjectStore(this.storeName, { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror = e => {
+          console.warn('IndexedDB failed to initialize:', e);
+          resolve(null);
+        };
+      });
+      return this.dbPromise;
+    },
+
+    async getAll() {
+      try {
+        const db = await this.init();
+        if (!db) return null;
+        return new Promise(resolve => {
+          const tx = db.transaction(this.storeName, 'readonly');
+          const store = tx.objectStore(this.storeName);
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve(null);
+        });
+      } catch (e) {
+        return null;
+      }
+    },
+
+    async setAll(items) {
+      try {
+        const db = await this.init();
+        if (!db) return false;
+        return new Promise(resolve => {
+          const tx = db.transaction(this.storeName, 'readwrite');
+          const store = tx.objectStore(this.storeName);
+          store.clear();
+          items.forEach(item => store.put(item));
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        });
+      } catch (e) {
+        return false;
+      }
+    }
+  };
+
   function seed() {
     return [
       mk('CC-101', 'Wi-Fi keeps dropping on 2nd floor', 'IT & Wi-Fi', 'High', 'Central Library, 2nd Floor', 'Rohit Sharma', 'Eduroam and Campus-Guest disconnect every 5 minutes. Around 30 students cannot access journals.', 14, [['Open', 25, 'Request received']], 'IT & Network Support', 'Rajesh Kumar (Senior Network Lead)', [
@@ -264,23 +353,24 @@ const App = (() => {
       ]),
       mk('CC-103', 'Water cooler leaking onto corridor', 'Facilities', 'Medium', 'Hostel Block B, Ground Floor', 'Kunal Patel', 'Drain pipe is cracked and spilling water, creating a slipping hazard.', 3, [['Open', 300, 'Request received'], ['In Progress', 260, 'Plumber assigned'], ['Resolved', 200, 'Replaced drain piping and cleaned the corridor']], 'Estate & Facilities', 'Suresh Rao (Estate & Plumbing)', [
         { author: 'Suresh Rao', role: 'staff', text: 'New PVC pipe welded and tested. Floor wiped dry.', at: ago(200) }
-      ], 5, ['Resolved quickly', 'Cleaned up']),
+      ], 5, ['⚡ Fast turnaround', '🧹 Cleaned area']),
       mk('CC-104', 'AC thermostat unresponsive', 'Facilities', 'Low', 'Computer Lab 4, Tech Building', 'Samir Verma', 'Thermostat stuck at 18°C and buttons do not respond. Remote is missing.', 2, [['Open', 480, 'Request received']], 'Estate & Facilities', 'Vikram Singh (HVAC & Electrical)'),
       mk('CC-105', 'Street light out near north gate', 'Safety', 'High', 'North Gate Pathway', 'Meera Iyer', 'Three lamps are off, the path is very dark after 7 PM.', 21, [['Open', 700, 'Request received'], ['In Progress', 600, 'Electrician scheduled for tonight']], 'Campus Safety & Security', 'Pooja Nair (Safety & Security Officer)'),
-      mk('CC-106', 'Mess serving cold food', 'Hostel & Mess', 'Medium', 'Hostel Block C Mess', 'Aarav Singh', 'Dinner has been served cold for three days. Heating counters appear off.', 9, [['Open', 1500, 'Request received'], ['Resolved', 1200, 'Heating element replaced and tested']], 'Hostel & Residential Life', 'Unassigned', [], 4, ['Fixed issue']),
+      mk('CC-106', 'Mess serving cold food', 'Hostel & Mess', 'Medium', 'Hostel Block C Mess', 'Aarav Singh', 'Dinner has been served cold for three days. Heating counters appear off.', 9, [['Open', 1500, 'Request received'], ['Resolved', 1200, 'Heating element replaced and tested']], 'Hostel & Residential Life', 'Unassigned', [], 4, ['🔧 High quality fix']),
       mk('CC-107', 'GPU cluster node kernel panic during model training', 'IT & Wi-Fi', 'High', 'AI & Robotics Lab, Room 204', 'Damon Vance', 'Workstation node-04 crashes with CUDA out-of-memory kernel lock during deep learning lab. Needs reboot and driver reinstallation.', 8, [['Open', 180, 'Request received'], ['In Progress', 45, 'System admin remoted into cluster node to inspect GPU logs']], 'IT & Network Support', 'Rajesh Kumar (Senior Network Lead)', [
         { author: 'Rajesh Kumar', role: 'staff', text: 'NVIDIA 550.78 driver reload finished. Testing synthetic benchmark load.', at: ago(30) }
       ]),
       mk('CC-108', 'Fire extinguisher inspection seal expired', 'Safety', 'Urgent', 'Ramanujan Science Block, 3rd Floor', 'Damon Salvatore', 'The CO2 extinguisher outside Chemistry Lab 302 has an inspection seal that expired last month. Needs immediate servicing and recertification.', 15, [['Open', 60, 'Safety officer notified for immediate audit']], 'Campus Safety & Security', 'Pooja Nair (Safety & Security Officer)'),
-      mk('CC-109', 'Wireless mic screeching feedback & low battery', 'Classroom AV', 'Medium', 'Main Auditorium', 'Damon Miller', 'Handheld wireless mic #2 keeps cutting out and generating severe RF screeching during morning guest lectures.', 5, [['Open', 720, 'Request received'], ['In Progress', 500, 'AV crew testing receiver frequencies'], ['Resolved', 180, 'Replaced rechargeable lithium cell and recalibrated channel frequency']], 'Classroom AV & Smart Labs', 'Anjali Sharma (AV & Smart Systems)', [], 5, ['Polite technician']),
+      mk('CC-109', 'Wireless mic screeching feedback & low battery', 'Classroom AV', 'Medium', 'Main Auditorium', 'Damon Miller', 'Handheld wireless mic #2 keeps cutting out and generating severe RF screeching during morning guest lectures.', 5, [['Open', 720, 'Request received'], ['In Progress', 500, 'AV crew testing receiver frequencies'], ['Resolved', 180, 'Replaced rechargeable lithium cell and recalibrated channel frequency']], 'Classroom AV & Smart Labs', 'Anjali Sharma (AV & Smart Systems)', [], 5, ['👍 Clear updates']),
       mk('CC-110', 'Lost student ID card and RFID bus pass', 'Other', 'Low', 'Campus Cafeteria, Lost & Found', 'Damon Clark', 'Found a blue lanyard with student ID #2024-CS-089 near cafeteria table 14 around 1:30 PM. Handed to security desk.', 4, [['Open', 95, 'Lost item logged in security register']], 'Campus Safety & Security', 'Unassigned'),
       mk('CC-111', 'Hostel washing machine #3 drainage pump failure', 'Hostel & Mess', 'Medium', 'Hostel Block A, Laundry Wing', 'Neha Gupta', 'Washing machine drum filled with soapy water and will not drain or unlock. Clothes currently trapped inside.', 11, [['Open', 360, 'Request received'], ['In Progress', 110, 'Technician dispatched with replacement drainage pump']], 'Hostel & Residential Life', 'Suresh Rao (Estate & Plumbing)', [
         { author: 'Neha Gupta', role: 'student', text: 'Is the technician arriving before 4 PM? Need laundry for evening lab.', at: ago(100) },
         { author: 'Suresh Rao', role: 'staff', text: 'Arriving in 15 mins with replacement motor.', at: ago(70) }
       ]),
-      mk('CC-112', 'Pavement paver loose causing bicycle trip hazard', 'Facilities', 'Low', 'Walkway between Cafeteria & Sports Complex', 'Vikram Sen', 'Two concrete pavers near the bicycle stand have cracked and tilt when stepped on or ridden over.', 3, [['Open', 2800, 'Request received'], ['In Progress', 2100, 'Facilities inspection completed'], ['Resolved', 900, 'Pavers re-mortared and leveled']], 'Estate & Facilities', 'Suresh Rao (Estate & Plumbing)', [], 5, ['High quality work']),
+      mk('CC-112', 'Pavement paver loose causing bicycle trip hazard', 'Facilities', 'Low', 'Walkway between Cafeteria & Sports Complex', 'Vikram Sen', 'Two concrete pavers near the bicycle stand have cracked and tilt when stepped on or ridden over.', 3, [['Open', 2800, 'Request received'], ['In Progress', 2100, 'Facilities inspection completed'], ['Resolved', 900, 'Pavers re-mortared and leveled']], 'Estate & Facilities', 'Suresh Rao (Estate & Plumbing)', [], 5, ['🔧 High quality fix']),
     ];
   }
+
   function mk(id, title, category, priority, location, contactName, description, upvotes, steps, department, assignee, comments = [], rating, feedback, image) {
     const timeline = steps.map(([status, m, note]) => ({ status, at: ago(m), note }));
     const dept = department || DEPT_MAP[category] || 'General Administration';
@@ -304,10 +394,23 @@ const App = (() => {
       image: image || undefined
     };
   }
-  function load() {
-    try { tickets = JSON.parse(localStorage.getItem(KEY)) || JSON.parse(localStorage.getItem('campuscare_tickets_v3')) || null; } catch { tickets = null; }
-    if (!Array.isArray(tickets) || tickets.length < 10) { tickets = seed(); save(); }
-    else {
+
+  async function load() {
+    let loaded = await DB.getAll();
+    if (Array.isArray(loaded) && loaded.length >= 10) {
+      tickets = loaded;
+    } else {
+      try {
+        tickets = JSON.parse(localStorage.getItem(KEY)) || JSON.parse(localStorage.getItem('unidesk_tickets_v1')) || null;
+      } catch {
+        tickets = null;
+      }
+    }
+
+    if (!Array.isArray(tickets) || tickets.length < 10) {
+      tickets = seed();
+      save();
+    } else {
       let changed = false;
       tickets.forEach(t => {
         if (!t.department) {
@@ -320,11 +423,70 @@ const App = (() => {
       if (changed) save();
     }
   }
-  const save = () => localStorage.setItem(KEY, JSON.stringify(tickets));
-  const isStaff = () => sessionStorage.getItem(STAFF_KEY) === '1';
+
+  function save() {
+    // 1. Asynchronous high-capacity IndexedDB write (safely handles high-res photo proofs)
+    DB.setAll(tickets);
+
+    // 2. Defensive LocalStorage backup (strips multi-MB base64 if needed to avoid QuotaExceededError)
+    try {
+      const lightCopy = tickets.map(t => {
+        if (t.image && t.image.length > 50000) {
+          const { image, ...rest } = t;
+          return { ...rest, hasImageOffline: true };
+        }
+        return t;
+      });
+      localStorage.setItem(KEY, JSON.stringify(lightCopy));
+    } catch (err) {
+      console.warn('LocalStorage quota limit reached, data safely retained in IndexedDB.', err);
+      if (err && (err.name === 'QuotaExceededError' || err.code === 22)) {
+        toast('Saved in high-capacity offline database.');
+      }
+    }
+  }
+
+  /* ============ AUTHENTICATION SUBSYSTEM ============ */
+  async function sha256(str) {
+    if (window.crypto && crypto.subtle) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    // Fallback simple hash if subtle crypto not available
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return String(hash);
+  }
+
+  function isStaff() {
+    try {
+      const raw = sessionStorage.getItem(TOKEN_KEY);
+      if (!raw) return false;
+      const session = JSON.parse(raw);
+      if (!session || !session.expiresAt || !session.token) return false;
+      if (Date.now() > session.expiresAt) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        return false;
+      }
+      return session.role === 'staff';
+    } catch {
+      return false;
+    }
+  }
 
   /* ---------- helpers ---------- */
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  
+  function sanitize(str) {
+    if (window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') {
+      return window.DOMPurify.sanitize(String(str ?? ''));
+    }
+    return esc(str);
+  }
+
   function timeAgo(iso) {
     const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
     if (m < 1) return 'just now';
@@ -355,11 +517,14 @@ const App = (() => {
     return `<span class="chip ${map[p]}">${p}</span>`;
   }
   function toast(msg) {
-    $('toast-msg').textContent = msg;
+    const msgEl = $('toast-msg');
+    if (msgEl) msgEl.textContent = msg;
     const t = $('toast');
-    t.classList.remove('opacity-0', '-translate-y-2');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => t.classList.add('opacity-0', '-translate-y-2'), 2400);
+    if (t) {
+      t.classList.remove('opacity-0', '-translate-y-2');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => t.classList.add('opacity-0', '-translate-y-2'), 2400);
+    }
   }
   const heading = (title, sub, extra = '', eyebrow = 'UNIDESK') => `<div class="flex flex-wrap items-end justify-between gap-6 mb-12 sm:mb-14">
     <div>
@@ -379,8 +544,10 @@ const App = (() => {
   ];
   function renderNav(path) {
     const active = h => (h === '#/' ? path === '/' : ('#' + path).startsWith(h));
-    $('nav').innerHTML = NAV.map(([h, l]) => `<a href="${h}" class="nav-link ${active(h) ? 'active' : ''}">${l}</a>`).join('');
-    $('tabbar').innerHTML = NAV.map(([h, l, i]) => `<a href="${h}" class="tab-link ${active(h) ? 'active' : ''}"><i data-lucide="${i}" class="w-5 h-5"></i>${l}</a>`).join('');
+    const navEl = $('nav');
+    const tabEl = $('tabbar');
+    if (navEl) navEl.innerHTML = NAV.map(([h, l]) => `<a href="${h}" class="nav-link ${active(h) ? 'active' : ''}">${l}</a>`).join('');
+    if (tabEl) tabEl.innerHTML = NAV.map(([h, l, i]) => `<a href="${h}" class="tab-link ${active(h) ? 'active' : ''}"><i data-lucide="${i}" class="w-5 h-5"></i>${l}</a>`).join('');
   }
 
   /* ---------- pages ---------- */
@@ -482,11 +649,11 @@ const App = (() => {
         <a href="#/requests" class="zen-cta zen-cta-glass glass">Track requests<span class="arrow"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span></a>
       </div>
 
-      <form onsubmit="App.trackById(event)" class="zen-track glass mt-6 zen-rise" style="--d:.5s">
+      <form id="track-form" data-submit="track-submit" class="zen-track glass mt-6 zen-rise" style="--d:.5s">
         <input id="track-id" placeholder="Have a ticket ID? e.g. CC-101" aria-label="Ticket ID" autocomplete="off">
         <button type="submit">Track</button>
       </form>
-      <p id="track-err" class="hidden text-red-300 text-sm mt-2">No ticket found with that ID.</p>
+      <p id="track-err" role="alert" aria-live="polite" class="hidden text-red-300 text-sm mt-2">No ticket found with that ID.</p>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-4xl mt-14 zen-rise" style="--d:.6s">
         ${stat('Total requests', c.total)}${stat('Open', c.open)}${stat('In progress', c.prog)}${stat('Resolved', c.done)}
@@ -497,15 +664,13 @@ const App = (() => {
     <div class="about-services-stack">
       <div class="about-scroll-track">
         <section id="about" class="about-panel">
-          <div class="zen-orb" style="width:380px;height:380px;right:12%;top:18%;opacity:0.12;"></div>
-          <div class="zen-orb" style="width:340px;height:340px;left:8%;bottom:22%;opacity:0.1;"></div>
-          <div class="about-statement-wrap relative z-10">
-            <div class="about-eyebrow"><span class="pulse-dot"></span> // UNIDESK CAPABILITIES &amp; OPERATIONS</div>
+          <div class="about-statement-wrap">
+            <div class="about-eyebrow"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-[#a3ff12]"></i> // UNIDESK CAPABILITIES &amp; OPERATIONS</div>
             <p class="about-statement" id="about-statement">
               ${statementWords.map(w => `<span class="about-word ${w === 'UNIDESK' ? 'highlight' : ''}">${w}</span>`).join(' ')}
             </p>
           </div>
-          <div id="capabilities" class="capabilities-wrap relative z-10" role="region" aria-label="Campus resolution capabilities">
+          <div id="capabilities" class="capabilities-wrap" role="region" aria-label="Campus resolution capabilities">
             <div class="capability-lanes">
               ${lanesHtml}
             </div>
@@ -573,7 +738,7 @@ const App = (() => {
     const sla = getSlaInfo(t);
     const hasImg = !!t.image;
     const commentCount = (t.comments || []).length;
-    return `<a href="#/ticket/${t.id}" class="bg-card rounded-2xl p-5 md:p-6 flex flex-col gap-3.5 hover:border-[#a3ff12]/50 hover:shadow-[0_12px_36px_rgba(163,255,18,0.12)] transition-all group">
+    return `<a href="#/ticket/${t.id}" data-ticket-card="${t.id}" class="bg-card rounded-2xl p-5 md:p-6 flex flex-col gap-3.5 hover:border-[#a3ff12]/50 hover:shadow-[0_12px_36px_rgba(163,255,18,0.12)] transition-all group">
       <div class="flex flex-wrap items-center gap-2 justify-between">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="font-mono text-xs text-[#a3ff12] bg-[#a3ff12]/10 border border-[#a3ff12]/25 px-2.5 py-1 rounded-md font-bold tracking-wider">${t.id}</span>
@@ -597,7 +762,7 @@ const App = (() => {
         <span class="inline-flex items-center gap-1.5"><i data-lucide="map-pin" class="w-3.5 h-3.5 text-[#a3ff12]"></i>${esc(t.location)}</span>
         <span class="inline-flex items-center gap-3">
           ${commentCount > 0 ? `<span class="inline-flex items-center gap-1 text-gray-300"><i data-lucide="message-square" class="w-3 h-3 text-[#a3ff12]"></i>${commentCount}</span>` : ''}
-          <span class="inline-flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5 text-gray-400"></i>${t.upvotes} affected</span>
+          <span class="inline-flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5 text-gray-400"></i><span class="vote-count">${t.upvotes} affected</span></span>
           <span>${esc(t.contactName)} · ${timeAgo(t.createdAt)}</span>
         </span>
       </div></a>`;
@@ -610,17 +775,17 @@ const App = (() => {
     return `<div class="max-w-5xl mx-auto">
       ${heading('Report an issue', 'Tell us what is wrong and where. We will route it to the right team.', '', 'SUBMIT TICKET')}
       
-      <!-- Duplicate Prevention Live Notification -->
-      <div id="duplicate-alert" class="hidden mb-6 bg-[#162012]/90 border border-[#a3ff12]/40 rounded-3xl p-5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl animate-fade"></div>
+      <!-- Duplicate Prevention Live Notification (Debounced, Accessible) -->
+      <div id="duplicate-alert" role="alert" aria-live="polite" class="hidden mb-6 bg-[#162012]/90 border border-[#a3ff12]/40 rounded-3xl p-5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl animate-fade"></div>
 
-      <form id="report-form" onsubmit="App.submitReport(event)" novalidate class="w-full bg-card rounded-3xl p-8 sm:p-12 md:p-14 space-y-12 border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
+      <form id="report-form" data-submit="report-submit" novalidate class="w-full bg-card rounded-3xl p-8 sm:p-12 md:p-14 space-y-12 border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
         <div>
           <div class="flex items-center justify-between mb-5">
             <label class="block font-bold text-lg text-white tracking-tight">1. What type of issue is it?</label>
             <span class="text-xs text-[#a3ff12] font-mono tracking-wider">// Select category</span>
           </div>
           <div id="cat-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4">${CATEGORIES.map(k => catBtn(k)).join('')}</div>
-          <p id="e-cat" class="hidden text-red-400 text-sm mt-3 font-medium">Please choose a category.</p>
+          <p id="e-cat" role="alert" aria-live="polite" class="hidden text-red-400 text-sm mt-3 font-medium">Please choose a category.</p>
         </div>
         <div class="pt-10 border-t border-white/10">
           <div class="flex items-center justify-between mb-5">
@@ -635,16 +800,16 @@ const App = (() => {
             <span class="text-xs text-[#a3ff12] font-mono tracking-wider">// Department & info</span>
           </div>
           <div>
-            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Issue Title</label>
+            <label for="f-title" class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Issue Title</label>
             <div class="relative flex items-center">
               <i data-lucide="type" class="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10"></i>
-              <input id="f-title" class="field !pl-12 !pr-5 !py-4 text-base" maxlength="80" placeholder="Short title, e.g. Projector not turning on in LH-3" oninput="App.onReportTyping()">
+              <input id="f-title" data-input="report-typing" aria-describedby="e-title" class="field !pl-12 !pr-5 !py-4 text-base" maxlength="80" placeholder="Short title, e.g. Projector not turning on in LH-3">
             </div>
-            <p id="e-title" class="hidden text-red-400 text-sm mt-2 font-medium">Title needs at least 5 characters.</p>
+            <p id="e-title" role="alert" aria-live="polite" class="hidden text-red-400 text-sm mt-2 font-medium">Title needs at least 5 characters.</p>
           </div>
           <div class="grid sm:grid-cols-2 gap-6">
             <div>
-              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Campus Department</label>
+              <label for="f-dept" class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Campus Department</label>
               <div class="relative flex items-center">
                 <i data-lucide="building-2" class="w-4 h-4 text-[#a3ff12] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10"></i>
                 <select id="f-dept" class="field !pl-12 !pr-10 !py-4 text-base appearance-none cursor-pointer">
@@ -652,28 +817,28 @@ const App = (() => {
                 </select>
                 <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
               </div>
-              <p class="text-[11px] text-gray-500 mt-1.5 font-mono">Designated campus unit responsible for resolution</p>
+              <p class="text-[11px] text-[#a1a89c] mt-1.5 font-mono">Designated campus unit responsible for resolution</p>
             </div>
             <div>
-              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Specific Location</label>
+              <label for="f-loc" class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Specific Location</label>
               <div class="relative flex items-center">
                 <i data-lucide="map-pin" class="w-4 h-4 text-[#a3ff12] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10"></i>
-                <input id="f-loc" class="field !pl-12 !pr-5 !py-4 text-base" placeholder="e.g. Block C, Room 204 or North Gate Pathway" oninput="App.onReportTyping()">
+                <input id="f-loc" data-input="report-typing" aria-describedby="e-loc" class="field !pl-12 !pr-5 !py-4 text-base" placeholder="e.g. Block C, Room 204 or North Gate Pathway">
               </div>
-              <p id="e-loc" class="hidden text-red-400 text-sm mt-2 font-medium">Location is required.</p>
+              <p id="e-loc" role="alert" aria-live="polite" class="hidden text-red-400 text-sm mt-2 font-medium">Location is required.</p>
             </div>
           </div>
           <div class="grid sm:grid-cols-2 gap-6">
             <div>
-              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Contact Name</label>
+              <label for="f-name" class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Contact Name</label>
               <div class="relative flex items-center">
                 <i data-lucide="user" class="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10"></i>
-                <input id="f-name" class="field !pl-12 !pr-5 !py-4 text-base" placeholder="Your name" value="${esc(savedName)}">
+                <input id="f-name" aria-describedby="e-name" class="field !pl-12 !pr-5 !py-4 text-base" placeholder="Your name" value="${esc(savedName)}">
               </div>
-              <p id="e-name" class="hidden text-red-400 text-sm mt-2 font-medium">Contact name is required.</p>
+              <p id="e-name" role="alert" aria-live="polite" class="hidden text-red-400 text-sm mt-2 font-medium">Contact name is required.</p>
             </div>
             <div>
-              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Student / Staff ID <span class="text-gray-500 font-normal font-mono lowercase">(optional)</span></label>
+              <label for="f-sid" class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Student / Staff ID <span class="text-[#a1a89c] font-normal font-mono lowercase">(optional)</span></label>
               <div class="relative flex items-center">
                 <i data-lucide="id-card" class="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10"></i>
                 <input id="f-sid" class="field !pl-12 !pr-5 !py-4 text-base" placeholder="e.g. 2024-CS-089 or EMP-401">
@@ -681,33 +846,36 @@ const App = (() => {
             </div>
           </div>
           <div>
-            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Description</label>
-            <textarea id="f-desc" rows="5" maxlength="500" class="field resize-none text-base leading-relaxed !p-5" placeholder="Describe the problem in detail. What happened, since when, who is affected?" oninput="document.getElementById('desc-count').textContent=this.value.length; App.onReportTyping();"></textarea>
-            <div class="flex justify-between mt-2.5"><p id="e-desc" class="hidden text-red-400 text-sm font-medium">Description needs at least 10 characters.</p><span class="text-xs text-gray-500 font-mono ml-auto"><span id="desc-count">0</span>/500</span></div>
+            <label for="f-desc" class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Description</label>
+            <textarea id="f-desc" rows="5" maxlength="500" data-input="report-typing" aria-describedby="e-desc" class="field resize-none text-base leading-relaxed !p-5" placeholder="Describe the problem in detail. What happened, since when, who is affected?"></textarea>
+            <div class="flex justify-between mt-2.5">
+              <p id="e-desc" role="alert" aria-live="polite" class="hidden text-red-400 text-sm font-medium">Description needs at least 10 characters.</p>
+              <span class="text-xs text-gray-400 font-mono ml-auto"><span id="desc-count">0</span>/500</span>
+            </div>
           </div>
 
           <!-- Photo Proof / Media Attachment Dropzone -->
           <div>
             <div class="flex items-center justify-between mb-2.5">
-              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400">Photo Proof / Attachment <span class="text-gray-500 font-normal font-mono lowercase">(optional)</span></label>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400">Photo Proof / Attachment <span class="text-[#a1a89c] font-normal font-mono lowercase">(optional)</span></label>
               <span class="text-xs text-[#a3ff12] font-mono">// Instant mobile camera or upload</span>
             </div>
             
-            <input type="file" id="f-image-input" accept="image/*" class="hidden" onchange="App.handleImageUpload(event)">
+            <input type="file" id="f-image-input" accept="image/*" class="hidden" data-change="image-upload">
             
-            <div id="image-dropzone" class="file-dropzone flex flex-col items-center justify-center gap-3 transition-colors cursor-pointer" onclick="document.getElementById('f-image-input').click()" ondragover="App.onDragOver(event)" ondragleave="App.onDragLeave(event)" ondrop="App.onDrop(event)">
+            <div id="image-dropzone" class="file-dropzone flex flex-col items-center justify-center gap-3" data-action="trigger-upload" tabindex="0" role="button" aria-label="Upload photo proof">
               <div class="w-12 h-12 rounded-full bg-[#a3ff12]/15 border border-[#a3ff12]/30 flex items-center justify-center text-[#a3ff12]">
                 <i data-lucide="camera" class="w-6 h-6"></i>
               </div>
               <div>
-                <p class="text-sm font-bold text-white">Click or drag &amp; drop photo proof here</p>
+                <p class="text-sm font-bold text-white">Click to upload photo or take picture</p>
                 <p class="text-xs text-gray-400 mt-1">PNG, JPG, WebP supported · Automatically compressed</p>
               </div>
             </div>
 
             <div id="image-preview-wrap" class="hidden mt-4 relative inline-block">
               <img id="image-preview" src="" alt="Photo preview" class="w-48 h-32 object-cover rounded-2xl border border-[#a3ff12]/40 shadow-xl">
-              <button type="button" onclick="App.removeImage()" class="absolute -top-2.5 -right-2.5 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 transition">
+              <button type="button" data-action="remove-image" aria-label="Remove image" class="absolute -top-2.5 -right-2.5 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 transition">
                 <i data-lucide="x" class="w-4 h-4"></i>
               </button>
             </div>
@@ -721,18 +889,20 @@ const App = (() => {
       </form>
     </div>`;
   }
+
   function catBtn(k) {
     const on = ui.draftCat === k.name;
-    return `<button type="button" data-cat="${k.name}" onclick="App.pickCat('${k.name}')" class="text-left rounded-2xl p-4 sm:p-5 border transition-all ${on ? 'border-[#a3ff12] bg-[#a3ff12]/15 text-white ring-2 ring-[#a3ff12]/30 shadow-[0_0_24px_rgba(163,255,18,0.2)]' : 'border-white/10 bg-white/[0.03] text-gray-300 hover:border-[#a3ff12]/40 hover:bg-white/[0.06]'} flex flex-col justify-between min-h-[105px] group">
+    return `<button type="button" data-action="pick-cat" data-cat="${k.name}" class="text-left rounded-2xl p-4 sm:p-5 border transition-all ${on ? 'border-[#a3ff12] bg-[#a3ff12]/15 text-white ring-2 ring-[#a3ff12]/30 shadow-[0_0_24px_rgba(163,255,18,0.2)]' : 'border-white/10 bg-white/[0.03] text-gray-300 hover:border-[#a3ff12]/40 hover:bg-white/[0.06]'} flex flex-col justify-between min-h-[105px] group">
       <i data-lucide="${k.icon}" class="w-5 h-5 ${on ? 'text-[#a3ff12]' : 'text-gray-400 group-hover:text-[#a3ff12]'} mb-2.5 transition"></i>
       <div>
         <div class="text-sm font-bold tracking-tight">${k.name}</div>
         <div class="text-[11px] text-gray-400 mt-1 line-clamp-1">${k.desc}</div>
       </div></button>`;
   }
+
   function prioBtn(p) {
     const on = ui.draftPrio === p;
-    return `<button type="button" onclick="App.pickPrio('${p}')" class="rounded-2xl py-3.5 px-4 text-sm font-bold border transition-all ${on ? 'border-[#a3ff12] bg-[#a3ff12]/20 text-[#a3ff12] ring-2 ring-[#a3ff12]/30 shadow-[0_0_20px_rgba(163,255,18,0.2)]' : 'border-white/10 bg-white/[0.03] text-gray-300 hover:border-[#a3ff12]/40 hover:text-white'}">${p}</button>`;
+    return `<button type="button" data-action="pick-prio" data-prio="${p}" class="rounded-2xl py-3.5 px-4 text-sm font-bold border transition-all ${on ? 'border-[#a3ff12] bg-[#a3ff12]/20 text-[#a3ff12] ring-2 ring-[#a3ff12]/30 shadow-[0_0_20px_rgba(163,255,18,0.2)]' : 'border-white/10 bg-white/[0.03] text-gray-300 hover:border-[#a3ff12]/40 hover:text-white'}">${p}</button>`;
   }
 
   function pageRequests() {
@@ -748,12 +918,12 @@ const App = (() => {
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         ${CAMPUS_ZONES.map(z => {
-          const zoneTickets = tickets.filter(t => t.location.toLowerCase().includes(z.match));
-          const urgent = zoneTickets.filter(t => t.priority === 'Urgent' && t.status !== 'Resolved').length;
-          const open = zoneTickets.filter(t => t.status !== 'Resolved').length;
-          const isSel = ui.filterZone === z.id;
-          const statusDot = urgent > 0 ? 'bg-red-500 shadow-[0_0_8px_#ef4444]' : open > 0 ? 'bg-amber-400 shadow-[0_0_8px_#f59e0b]' : 'bg-[#a3ff12] shadow-[0_0_8px_#a3ff12]';
-          return `<button type="button" onclick="App.setZone('${z.id}')" class="building-card text-left ${isSel ? 'active' : ''}">
+      const zoneTickets = tickets.filter(t => t.location.toLowerCase().includes(z.match));
+      const urgent = zoneTickets.filter(t => t.priority === 'Urgent' && t.status !== 'Resolved').length;
+      const open = zoneTickets.filter(t => t.status !== 'Resolved').length;
+      const isSel = ui.filterZone === z.id;
+      const statusDot = urgent > 0 ? 'bg-red-500 shadow-[0_0_8px_#ef4444]' : open > 0 ? 'bg-amber-400 shadow-[0_0_8px_#f59e0b]' : 'bg-[#a3ff12] shadow-[0_0_8px_#a3ff12]';
+      return `<button type="button" data-action="set-zone" data-zone="${z.id}" class="building-card text-left ${isSel ? 'active' : ''}">
             <div class="flex items-center justify-between mb-2">
               <i data-lucide="${z.icon}" class="w-4 h-4 ${isSel ? 'text-[#a3ff12]' : 'text-gray-400'}"></i>
               <span class="w-2 h-2 rounded-full ${statusDot}"></span>
@@ -761,20 +931,24 @@ const App = (() => {
             <div class="font-bold text-xs text-white truncate">${z.name}</div>
             <div class="text-[11px] text-gray-400 mt-1 font-mono">${open} active · ${z.floor}</div>
           </button>`;
-        }).join('')}
+    }).join('')}
       </div>
-      ${ui.filterZone !== 'ALL' ? `<div class="mt-2 text-right"><button onclick="App.setZone('ALL')" class="text-xs text-[#a3ff12] hover:underline font-mono">Clear zone filter ✕</button></div>` : ''}
+      ${ui.filterZone !== 'ALL' ? `<div class="mt-2 text-right"><button data-action="clear-zone" class="text-xs text-[#a3ff12] hover:underline font-mono">Clear zone filter ✕</button></div>` : ''}
     </div>
 
     <div class="bg-card rounded-3xl p-4 md:p-5 mb-6 border border-white/10 grid gap-3.5 lg:grid-cols-[1fr_auto_auto_auto]">
-      <div class="relative flex items-center"><i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i><input id="q" class="field !pl-12 !pr-4 !py-3" placeholder="Search title, ID, location, department or reporter" value="${esc(ui.q)}" oninput="App.setQ(this.value)"></div>
-      <select class="field lg:w-48 !py-3" onchange="App.setCat(this.value)"><option value="ALL">All categories</option>${CATEGORIES.map(k => `<option ${ui.filterCat === k.name ? 'selected' : ''}>${k.name}</option>`).join('')}</select>
-      <select class="field lg:w-52 !py-3" onchange="App.setDept(this.value)"><option value="ALL">All departments</option>${DEPARTMENTS.map(d => `<option ${ui.filterDept === d ? 'selected' : ''}>${d}</option>`).join('')}</select>
-      <select class="field lg:w-44 !py-3" onchange="App.setSort(this.value)"><option value="new" ${ui.sort === 'new' ? 'selected' : ''}>Newest first</option><option value="votes" ${ui.sort === 'votes' ? 'selected' : ''}>Most affected</option><option value="prio" ${ui.sort === 'prio' ? 'selected' : ''}>Highest priority</option></select>
+      <div class="relative flex items-center">
+        <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+        <input id="q" data-input="search-requests" class="field !pl-12 !pr-4 !py-3" placeholder="Search title, ID, location, department or reporter" value="${esc(ui.q)}">
+      </div>
+      <select class="field lg:w-48 !py-3" data-change="filter-cat"><option value="ALL">All categories</option>${CATEGORIES.map(k => `<option ${ui.filterCat === k.name ? 'selected' : ''}>${k.name}</option>`).join('')}</select>
+      <select class="field lg:w-52 !py-3" data-change="filter-dept"><option value="ALL">All departments</option>${DEPARTMENTS.map(d => `<option ${ui.filterDept === d ? 'selected' : ''}>${d}</option>`).join('')}</select>
+      <select class="field lg:w-44 !py-3" data-change="sort-requests"><option value="new" ${ui.sort === 'new' ? 'selected' : ''}>Newest first</option><option value="votes" ${ui.sort === 'votes' ? 'selected' : ''}>Most affected</option><option value="prio" ${ui.sort === 'prio' ? 'selected' : ''}>Highest priority</option></select>
     </div>
     <div id="status-tabs" class="flex gap-2.5 overflow-x-auto pb-2 mb-6"></div>
     <div id="req-list" class="grid gap-3.5"></div>`;
   }
+
   function renderRequestList() {
     const q = ui.q.toLowerCase();
     const zoneMatch = ui.filterZone !== 'ALL' ? (CAMPUS_ZONES.find(z => z.id === ui.filterZone) || {}).match : null;
@@ -787,8 +961,14 @@ const App = (() => {
     list.sort(ui.sort === 'votes' ? (a, b) => b.upvotes - a.upvotes : ui.sort === 'prio' ? (a, b) => rank[a.priority] - rank[b.priority] : (a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     const c = counts();
     const tabs = [['ALL', 'All', c.total], ['Open', 'Open', c.open], ['In Progress', 'In Progress', c.prog], ['Resolved', 'Resolved', c.done]];
-    $('status-tabs').innerHTML = tabs.map(([v, l, n]) => `<button onclick="App.setStatus('${v}')" class="shrink-0 rounded-full px-5 py-2.5 text-sm font-bold transition-all ${ui.filterStatus === v ? 'bg-[#a3ff12] text-[#0c0f0a] shadow-[0_4px_20px_rgba(163,255,18,0.35)]' : 'bg-white/[0.04] border border-white/10 text-gray-300 hover:text-white hover:border-[#a3ff12]/30'}">${l} <span class="${ui.filterStatus === v ? 'bg-[#0c0f0a]/20 text-[#0c0f0a]' : 'bg-white/10 text-gray-400'} px-2 py-0.5 rounded-full text-xs font-mono ml-1">${n}</span></button>`).join('');
-    $('req-list').innerHTML = list.length ? list.map(ticketRow).join('') : `<div class="bg-card rounded-3xl p-12 text-center border border-white/10"><div class="w-16 h-16 rounded-full bg-[#a3ff12]/15 border border-[#a3ff12]/30 flex items-center justify-center mx-auto mb-4 text-[#a3ff12]"><i data-lucide="inbox" class="w-7 h-7"></i></div><div class="font-bold text-xl text-white">No requests found</div><p class="text-sm text-gray-400 mt-2 max-w-sm mx-auto">Try different keywords or filters, or submit a new campus request.</p><a href="#/report" class="btn-primary mt-6 inline-flex"><i data-lucide="plus" class="w-4 h-4"></i>New request</a></div>`;
+    const tabsEl = $('status-tabs');
+    if (tabsEl) {
+      tabsEl.innerHTML = tabs.map(([v, l, n]) => `<button type="button" data-action="set-status" data-status="${v}" class="shrink-0 rounded-full px-5 py-2.5 text-sm font-bold transition-all ${ui.filterStatus === v ? 'bg-[#a3ff12] text-[#0c0f0a] shadow-[0_4px_20px_rgba(163,255,18,0.35)]' : 'bg-white/[0.04] border border-white/10 text-gray-300 hover:text-white hover:border-[#a3ff12]/30'}">${l} <span class="${ui.filterStatus === v ? 'bg-[#0c0f0a]/20 text-[#0c0f0a]' : 'bg-white/10 text-gray-400'} px-2 py-0.5 rounded-full text-xs font-mono ml-1">${n}</span></button>`).join('');
+    }
+    const listEl = $('req-list');
+    if (listEl) {
+      listEl.innerHTML = list.length ? list.map(ticketRow).join('') : `<div class="bg-card rounded-3xl p-12 text-center border border-white/10"><div class="w-16 h-16 rounded-full bg-[#a3ff12]/15 border border-[#a3ff12]/30 flex items-center justify-center mx-auto mb-4 text-[#a3ff12]"><i data-lucide="inbox" class="w-7 h-7"></i></div><div class="font-bold text-xl text-white">No requests found</div><p class="text-sm text-gray-400 mt-2 max-w-sm mx-auto">Try different keywords or filters, or submit a new campus request.</p><a href="#/report" class="btn-primary mt-6 inline-flex"><i data-lucide="plus" class="w-4 h-4"></i>New request</a></div>`;
+    }
     lucide.createIcons();
   }
 
@@ -799,28 +979,28 @@ const App = (() => {
     const sla = getSlaInfo(t);
     const comments = t.comments || [];
 
-    const staffActions = isStaff() ? `<div class="bg-card rounded-3xl p-6 md:p-7 border border-white/10 mt-6 shadow-xl space-y-4">
+    const staffActions = isStaff() ? `<div id="staff-action-box" class="bg-card rounded-3xl p-6 md:p-7 border border-white/10 mt-6 shadow-xl space-y-4">
       <div class="font-bold text-base flex items-center justify-between text-[#a3ff12] font-mono text-sm uppercase tracking-wider">
         <span class="flex items-center gap-2"><i data-lucide="shield-check" class="w-4 h-4"></i>Staff Dispatch &amp; Actions</span>
         <span class="text-xs text-gray-400">Authenticated Staff</span>
       </div>
       <div>
         <label class="block text-xs font-mono uppercase tracking-wider text-gray-400 mb-2">Update Progression Status</label>
-        <div class="flex flex-wrap gap-2.5">${STATUSES.map(s => `<button onclick="App.setTicketStatus('${t.id}','${s}')" class="rounded-xl px-4 py-2 text-sm font-bold border transition-all ${t.status === s ? 'border-[#a3ff12] bg-[#a3ff12]/20 text-[#a3ff12] shadow-[0_0_15px_rgba(163,255,18,0.25)]' : 'border-white/15 bg-white/[0.03] text-gray-300 hover:border-[#a3ff12]/50 hover:text-white'}">${s}</button>`).join('')}</div>
+        <div class="flex flex-wrap gap-2.5">${STATUSES.map(s => `<button type="button" data-action="set-ticket-status" data-id="${t.id}" data-status="${s}" class="rounded-xl px-4 py-2 text-sm font-bold border transition-all ${t.status === s ? 'border-[#a3ff12] bg-[#a3ff12]/20 text-[#a3ff12] shadow-[0_0_15px_rgba(163,255,18,0.25)]' : 'border-white/15 bg-white/[0.03] text-gray-300 hover:border-[#a3ff12]/50 hover:text-white'}">${s}</button>`).join('')}</div>
       </div>
       <div class="grid sm:grid-cols-2 gap-4 pt-2">
         <div>
-          <label class="block text-xs font-mono uppercase tracking-wider text-gray-400 mb-1.5">Assign Lead Technician</label>
-          <select class="field !py-2.5 text-sm" onchange="App.assignTicket('${t.id}', this.value)">
+          <label for="assign-select-${t.id}" class="block text-xs font-mono uppercase tracking-wider text-gray-400 mb-1.5">Assign Lead Technician</label>
+          <select id="assign-select-${t.id}" class="field !py-2.5 text-sm" data-change="assign-ticket" data-id="${t.id}">
             ${TECHNICIANS.map(tech => `<option value="${tech}" ${t.assignee === tech ? 'selected' : ''}>${tech}</option>`).join('')}
           </select>
         </div>
         <div>
-          <label class="block text-xs font-mono uppercase tracking-wider text-gray-400 mb-1.5">Resolution / Dispatch Note</label>
+          <label for="staff-note" class="block text-xs font-mono uppercase tracking-wider text-gray-400 mb-1.5">Resolution / Dispatch Note</label>
           <input id="staff-note" class="field !py-2.5 text-sm" placeholder="e.g. Technician dispatched with replacement part">
         </div>
       </div>
-    </div>` : `<p class="text-sm text-gray-500 mt-6">Staff? <a href="#/staff" class="text-[#a3ff12] font-semibold hover:underline">Sign in</a> to update status or assign technicians.</p>`;
+    </div>` : `<p class="text-sm text-[#a1a89c] mt-6">Staff? <a href="#/staff" class="text-[#a3ff12] font-semibold hover:underline">Sign in</a> to update status or assign technicians.</p>`;
 
     // CSAT Feedback Section (for Resolved tickets)
     let csatHtml = '';
@@ -832,18 +1012,18 @@ const App = (() => {
           <div class="font-mono text-xs uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-2">
             <i data-lucide="star" class="w-4 h-4 fill-emerald-400 text-emerald-400"></i>// RESOLUTION SATISFACTION (CSAT)
           </div>
-          ${currentRating > 0 ? `<span class="text-xs text-emerald-300 font-mono font-bold bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">Rated ${currentRating}.0 / 5.0</span>` : ''}
+          <span id="csat-rated-badge" class="${currentRating > 0 ? '' : 'hidden'} text-xs text-emerald-300 font-mono font-bold bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">Rated ${currentRating}.0 / 5.0</span>
         </div>
         <h3 class="text-lg font-bold text-white mb-1">How satisfied are you with this resolution?</h3>
         <p class="text-xs text-gray-400 mb-4">Your feedback helps improve campus facilities and staff recognition.</p>
-        <div class="flex items-center gap-3 mb-4">
-          ${[1, 2, 3, 4, 5].map(star => `<button type="button" onclick="App.rateTicket('${t.id}', ${star})" class="star-btn text-2xl sm:text-3xl ${currentRating >= star ? 'active' : ''}" title="Rate ${star} star${star > 1 ? 's' : ''}">★</button>`).join('')}
+        <div id="csat-stars" class="flex items-center gap-3 mb-4">
+          ${[1, 2, 3, 4, 5].map(star => `<button type="button" data-action="rate-ticket" data-id="${t.id}" data-stars="${star}" class="star-btn text-2xl sm:text-3xl ${currentRating >= star ? 'active' : ''}" title="Rate ${star} star${star > 1 ? 's' : ''}">★</button>`).join('')}
         </div>
         <div class="flex flex-wrap gap-2 pt-2 border-t border-white/5">
           ${feedbackTags.map(tag => {
-            const hasTag = Array.isArray(t.feedback) && t.feedback.includes(tag);
-            return `<button type="button" onclick="App.toggleFeedbackTag('${t.id}', '${tag}')" class="text-xs px-3 py-1.5 rounded-full border transition-all ${hasTag ? 'bg-[#a3ff12]/20 border-[#a3ff12] text-[#a3ff12] font-semibold' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/20'}">${tag}</button>`;
-          }).join('')}
+        const hasTag = Array.isArray(t.feedback) && t.feedback.includes(tag);
+        return `<button type="button" data-action="toggle-tag" data-id="${t.id}" data-tag="${tag}" class="text-xs px-3 py-1.5 rounded-full border transition-all ${hasTag ? 'bg-[#a3ff12]/20 border-[#a3ff12] text-[#a3ff12] font-semibold' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/20'}">${tag}</button>`;
+      }).join('')}
         </div>
       </div>`;
     }
@@ -857,8 +1037,8 @@ const App = (() => {
             <span class="chip bg-white/10 text-gray-300 border border-white/10"><i data-lucide="${catIcon(t.category)}" class="w-3.5 h-3.5 text-[#a3ff12]"></i>${esc(t.category)}</span>
             <span class="chip bg-[#a3ff12]/10 text-white border border-[#a3ff12]/30"><i data-lucide="building-2" class="w-3.5 h-3.5 text-[#a3ff12]"></i>${esc(t.department || DEPT_MAP[t.category] || 'General Admin')}</span>
             ${prioChip(t.priority)}
-            <span class="sla-pill ${sla.cls}"><i data-lucide="${sla.icon}" class="w-3 h-3"></i>${sla.text}</span>
-            ${statusChip(t.status)}
+            <span id="ticket-sla" class="sla-pill ${sla.cls}"><i data-lucide="${sla.icon}" class="w-3 h-3"></i>${sla.text}</span>
+            <span id="ticket-status-chip">${statusChip(t.status)}</span>
           </div>
           <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight text-white font-['Outfit']">${esc(t.title)}</h1>
           <p class="text-gray-300 mt-4 leading-relaxed whitespace-pre-line text-base">${esc(t.description)}</p>
@@ -867,7 +1047,7 @@ const App = (() => {
             <div class="text-xs uppercase font-mono tracking-wider text-gray-400 mb-3 flex items-center gap-2">
               <i data-lucide="image" class="w-4 h-4 text-[#a3ff12]"></i>Attached Photo Proof
             </div>
-            <div class="relative group max-w-sm rounded-2xl overflow-hidden border border-white/15 bg-black/40 cursor-pointer shadow-xl" onclick="App.zoomImage('${t.image}')">
+            <div class="relative group max-w-sm rounded-2xl overflow-hidden border border-white/15 bg-black/40 cursor-pointer shadow-xl" data-action="zoom-ticket" data-id="${t.id}" tabindex="0" role="button" aria-label="Enlarge image attachment">
               <img src="${t.image}" alt="Attachment for ${t.id}" class="w-full h-48 object-cover transition duration-300 group-hover:scale-105">
               <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white font-semibold text-xs backdrop-blur-[2px]">
                 <i data-lucide="maximize-2" class="w-4 h-4 text-[#a3ff12]"></i>Click to enlarge
@@ -876,15 +1056,15 @@ const App = (() => {
           </div>` : ''}
 
           <div class="grid sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-white/10 text-sm">
-            <div><div class="text-gray-500 text-xs font-mono uppercase mb-1">Department</div><div class="font-medium text-white flex items-center gap-1.5"><i data-lucide="building-2" class="w-4 h-4 text-[#a3ff12]"></i>${esc(t.department || DEPT_MAP[t.category] || 'General Admin')}</div></div>
-            <div><div class="text-gray-500 text-xs font-mono uppercase mb-1">Location</div><div class="font-medium text-white flex items-center gap-1.5"><i data-lucide="map-pin" class="w-4 h-4 text-[#a3ff12]"></i>${esc(t.location)}</div></div>
-            <div><div class="text-gray-500 text-xs font-mono uppercase mb-1">Reported by</div><div class="font-medium text-white">${esc(t.contactName)}${t.studentId ? ` <span class="text-xs text-gray-400 font-mono">(${esc(t.studentId)})</span>` : ''}</div></div>
-            <div><div class="text-gray-500 text-xs font-mono uppercase mb-1">Submitted</div><div class="font-medium text-white">${fmt(t.createdAt)}</div></div>
+            <div><div class="text-gray-400 text-xs font-mono uppercase mb-1">Department</div><div class="font-medium text-white flex items-center gap-1.5"><i data-lucide="building-2" class="w-4 h-4 text-[#a3ff12]"></i>${esc(t.department || DEPT_MAP[t.category] || 'General Admin')}</div></div>
+            <div><div class="text-gray-400 text-xs font-mono uppercase mb-1">Location</div><div class="font-medium text-white flex items-center gap-1.5"><i data-lucide="map-pin" class="w-4 h-4 text-[#a3ff12]"></i>${esc(t.location)}</div></div>
+            <div><div class="text-gray-400 text-xs font-mono uppercase mb-1">Reported by</div><div class="font-medium text-white">${esc(t.contactName)}${t.studentId ? ` <span class="text-xs text-gray-400 font-mono">(${esc(t.studentId)})</span>` : ''}</div></div>
+            <div><div class="text-gray-400 text-xs font-mono uppercase mb-1">Submitted</div><div class="font-medium text-white">${fmt(t.createdAt)}</div></div>
           </div>
         </div>
 
         <!-- 3-Step Progression Stepper -->
-        <div class="bg-card rounded-3xl p-6 md:p-7 mt-6 border border-white/10"><div class="flex items-start">${[0, 1, 2].map(i => `<div class="flex-1 flex flex-col items-center text-center gap-2 relative">${i > 0 ? `<div class="absolute top-4 right-1/2 w-full h-0.5 ${i <= idx ? 'bg-[#a3ff12]' : 'bg-white/10'}"></div>` : ''}<div class="relative z-10 w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${i <= idx ? 'bg-[#a3ff12] text-[#0c0f0a] shadow-[0_0_16px_rgba(163,255,18,0.5)]' : 'bg-white/10 text-gray-500'}"><i data-lucide="${i <= idx ? 'check' : 'circle'}" class="w-4 h-4"></i></div><span class="text-xs font-semibold ${i <= idx ? 'text-white' : 'text-gray-500'}">${STATUSES[i]}</span></div>`).join('')}</div></div>
+        <div id="ticket-stepper" class="bg-card rounded-3xl p-6 md:p-7 mt-6 border border-white/10"><div class="flex items-start">${[0, 1, 2].map(i => `<div class="flex-1 flex flex-col items-center text-center gap-2 relative">${i > 0 ? `<div class="absolute top-4 right-1/2 w-full h-0.5 ${i <= idx ? 'bg-[#a3ff12]' : 'bg-white/10'}"></div>` : ''}<div class="relative z-10 w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${i <= idx ? 'bg-[#a3ff12] text-[#0c0f0a] shadow-[0_0_16px_rgba(163,255,18,0.5)]' : 'bg-white/10 text-gray-400'}"><i data-lucide="${i <= idx ? 'check' : 'circle'}" class="w-4 h-4"></i></div><span class="text-xs font-semibold ${i <= idx ? 'text-white' : 'text-gray-400'}">${STATUSES[i]}</span></div>`).join('')}</div></div>
 
         <!-- Staff Action Panel -->
         ${staffActions}
@@ -898,11 +1078,11 @@ const App = (() => {
             <div class="font-mono text-xs uppercase tracking-wider text-[#a3ff12] font-semibold flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-[#a3ff12] shadow-[0_0_8px_#a3ff12]"></span>// DIRECT CLARIFICATIONS &amp; UPDATES
             </div>
-            <span class="text-xs text-gray-400 font-mono">${comments.length} message${comments.length === 1 ? '' : 's'}</span>
+            <span id="comments-count" class="text-xs text-gray-400 font-mono">${comments.length} message${comments.length === 1 ? '' : 's'}</span>
           </div>
 
           <!-- Message list -->
-          <div class="space-y-4 mb-6">
+          <div id="comments-list" class="space-y-4 mb-6">
             ${comments.length ? comments.map(c => `
               <div class="rounded-2xl p-4 border ${c.role === 'staff' ? 'bg-[#152011]/80 border-[#a3ff12]/30 text-white ml-3 sm:ml-6' : 'bg-white/[0.04] border-white/10 text-gray-200 mr-3 sm:mr-6'}">
                 <div class="flex items-center justify-between gap-2 mb-2">
@@ -914,11 +1094,11 @@ const App = (() => {
                 </div>
                 <p class="text-sm leading-relaxed">${esc(c.text)}</p>
               </div>
-            `).join('') : `<p class="text-sm text-gray-500 italic py-2">No discussion notes yet. Need to provide more details or ask the technician? Post a message below.</p>`}
+            `).join('') : `<p class="comments-empty text-sm text-gray-400 italic py-2">No discussion notes yet. Need to provide more details or ask the technician? Post a message below.</p>`}
           </div>
 
           <!-- Add comment input -->
-          <form onsubmit="App.addComment(event, '${t.id}')" class="space-y-3 pt-2 border-t border-white/5">
+          <form id="comment-form" data-submit="comment-submit" data-id="${t.id}" class="space-y-3 pt-2 border-t border-white/5">
             <div class="flex gap-3">
               <input id="c-author" class="field !w-36 sm:!w-48 !py-3 text-sm shrink-0" placeholder="Your name" value="${esc(localStorage.getItem('unidesk_name') || (isStaff() ? 'Campus Staff' : ''))}">
               <input id="c-text" class="field !py-3 text-sm flex-1" placeholder="Write a note, question, or location detail..." required>
@@ -938,7 +1118,7 @@ const App = (() => {
               <i data-lucide="user-check" class="w-5 h-5"></i>
             </div>
             <div>
-              <div class="font-bold text-white text-sm">${esc(t.assignee || 'Unassigned')}</div>
+              <div id="ticket-assignee" class="font-bold text-white text-sm">${esc(t.assignee || 'Unassigned')}</div>
               <div class="text-xs text-gray-400 font-mono mt-0.5">${esc(t.department || 'Campus Facilities')}</div>
             </div>
           </div>
@@ -947,15 +1127,15 @@ const App = (() => {
         <div class="bg-card rounded-3xl p-6 border border-white/10">
           <div class="font-bold text-base text-white mb-1">Affected by this too?</div>
           <p class="text-sm text-gray-400 mb-4 leading-relaxed">Let staff know more students are impacted to elevate priority.</p>
-          <button onclick="App.upvote('${t.id}')" class="btn-ghost w-full justify-center !py-3 hover:border-[#a3ff12]"><i data-lucide="thumbs-up" class="w-4 h-4 text-[#a3ff12]"></i>+1 Affected · ${t.upvotes}</button>
+          <button type="button" data-action="upvote" data-id="${t.id}" class="btn-ghost w-full justify-center !py-3 hover:border-[#a3ff12] transition-transform duration-150"><i data-lucide="thumbs-up" class="w-4 h-4 text-[#a3ff12]"></i>+1 Affected · ${t.upvotes}</button>
         </div>
 
         <div class="bg-card rounded-3xl p-6 border border-white/10">
           <div class="font-bold text-base text-white mb-4 flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-[#a3ff12]">
             <span class="w-1.5 h-1.5 rounded-full bg-[#a3ff12]"></span>// Activity Log
           </div>
-          <ol class="space-y-5 relative">
-            ${[...t.timeline].reverse().map(e => `<li class="pl-6 relative"><span class="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full bg-[#a3ff12] shadow-[0_0_10px_#a3ff12]"></span><div class="flex items-center gap-2 text-sm font-semibold text-white">${e.status}<span class="text-xs text-gray-500 font-normal font-mono">${fmt(e.at)}</span></div><p class="text-sm text-gray-400 mt-1 leading-relaxed">${esc(e.note || '')}</p></li>`).join('')}
+          <ol id="ticket-timeline" class="space-y-5 relative">
+            ${[...t.timeline].reverse().map(e => `<li class="pl-6 relative"><span class="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full bg-[#a3ff12] shadow-[0_0_10px_#a3ff12]"></span><div class="flex items-center gap-2 text-sm font-semibold text-white">${e.status}<span class="text-xs text-gray-400 font-normal font-mono">${fmt(e.at)}</span></div><p class="text-sm text-gray-400 mt-1 leading-relaxed">${esc(e.note || '')}</p></li>`).join('')}
           </ol>
         </div>
       </aside>
@@ -965,7 +1145,7 @@ const App = (() => {
   function pageHelp() {
     const tabs = Object.keys(FAQ);
     return `${heading('Knowledge base', 'Quick answers before you raise a request.', '', 'CAMPUS HELP')}
-    <div class="flex gap-2.5 overflow-x-auto pb-2 mb-6">${tabs.map(t => `<button onclick="App.setFaq('${t}')" class="shrink-0 rounded-full px-5 py-2.5 text-sm font-bold transition-all ${ui.faqCat === t ? 'bg-[#a3ff12] text-[#0c0f0a] shadow-[0_4px_20px_rgba(163,255,18,0.35)]' : 'bg-white/[0.04] border border-white/10 text-gray-300 hover:text-white hover:border-[#a3ff12]/30'}">${t}</button>`).join('')}</div>
+    <div class="flex gap-2.5 overflow-x-auto pb-2 mb-6">${tabs.map(t => `<button type="button" data-action="set-faq" data-cat="${t}" class="shrink-0 rounded-full px-5 py-2.5 text-sm font-bold transition-all ${ui.faqCat === t ? 'bg-[#a3ff12] text-[#0c0f0a] shadow-[0_4px_20px_rgba(163,255,18,0.35)]' : 'bg-white/[0.04] border border-white/10 text-gray-300 hover:text-white hover:border-[#a3ff12]/30'}">${t}</button>`).join('')}</div>
     <div class="grid gap-3.5 max-w-3xl">${FAQ[ui.faqCat].map(([q, a]) => `<details class="bg-card rounded-2xl p-5 md:p-6 border border-white/10 hover:border-[#a3ff12]/40 transition group"><summary class="flex items-center justify-between gap-4 font-bold text-white text-base md:text-lg cursor-pointer">${q}<i data-lucide="chevron-down" class="chev w-5 h-5 text-[#a3ff12] shrink-0 transition-transform"></i></summary><p class="text-gray-400 mt-3.5 leading-relaxed text-sm md:text-base border-t border-white/5 pt-3">${a}</p></details>`).join('')}</div>
     <div class="bg-card rounded-3xl p-6 sm:p-8 mt-10 max-w-3xl flex flex-wrap items-center justify-between gap-6 border border-white/10 shadow-xl"><div><div class="font-bold text-xl text-white">Did not find your answer?</div><p class="text-sm text-gray-400 mt-1">Raise a request and our dedicated team will resolve it.</p></div><a href="#/report" class="btn-primary"><i data-lucide="plus" class="w-4 h-4 stroke-[2.5]"></i>Report an issue</a></div>`;
   }
@@ -989,26 +1169,26 @@ const App = (() => {
         <span class="w-14 h-14 rounded-2xl bg-[#a3ff12]/15 border border-[#a3ff12]/30 flex items-center justify-center mb-5 mx-auto text-[#a3ff12] shadow-[0_0_24px_rgba(163,255,18,0.25)]"><i data-lucide="lock-keyhole" class="w-7 h-7"></i></span>
         <div class="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-[#a3ff12] mb-2 font-semibold">// RESTRICTED</div>
         <h1 class="text-2xl sm:text-3xl font-extrabold text-white">Staff Portal</h1>
-        <p class="text-gray-400 mt-1 mb-6 text-sm">Enter the staff PIN to manage tickets and updates. <span class="text-gray-500 font-mono">(Demo PIN: 1234)</span></p>
-        <form onsubmit="App.staffLogin(event)" class="space-y-4">
-          <input id="pin" type="password" inputmode="numeric" class="field text-center tracking-widest text-lg font-mono" placeholder="••••" autocomplete="off">
-          <p id="pin-err" class="hidden text-red-400 text-sm font-medium">Incorrect PIN.</p>
-          <button class="btn-primary w-full !py-3.5 font-bold">Sign In</button>
+        <p class="text-gray-400 mt-1 mb-6 text-sm">Enter the staff PIN to manage tickets and updates. <span class="text-[#a1a89c] font-mono">(Demo PIN: 1234)</span></p>
+        <form id="staff-login-form" data-submit="staff-login-submit" class="space-y-4">
+          <input id="pin" type="password" inputmode="numeric" aria-describedby="pin-err" class="field text-center tracking-widest text-lg font-mono" placeholder="••••" autocomplete="off">
+          <p id="pin-err" role="alert" aria-live="polite" class="hidden text-red-400 text-sm font-medium">Incorrect PIN.</p>
+          <button type="submit" class="btn-primary w-full !py-3.5 font-bold">Sign In</button>
         </form></div>`;
     }
     const c = counts();
     const max = Math.max(1, ...CATEGORIES.map(k => tickets.filter(t => t.category === k.name).length));
     const resolvedT = tickets.filter(t => t.status === 'Resolved');
     const avgMins = resolvedT.length ? Math.round(resolvedT.reduce((s, t) => s + (new Date(t.timeline[t.timeline.length - 1].at) - new Date(t.createdAt)), 0) / resolvedT.length / 60000) : 0;
-    
+
     // CSAT calculation
     const ratedT = tickets.filter(t => typeof t.rating === 'number' && t.rating > 0);
     const avgCsat = ratedT.length ? (ratedT.reduce((acc, t) => acc + t.rating, 0) / ratedT.length).toFixed(1) : '5.0';
 
     const stat = (l, v, cl) => `<div class="bg-card rounded-3xl p-6 border border-white/10 hover:border-[#a3ff12]/30 transition"><div class="text-xs uppercase tracking-wider text-gray-400 font-mono">${l}</div><div class="text-3xl sm:text-4xl font-extrabold mt-2 font-['Outfit'] ${cl}">${v}</div></div>`;
     const queue = tickets.filter(t => ui.staffFilter === 'ALL' || t.status === ui.staffFilter).sort((a, b) => ({ Urgent: 0, High: 1, Medium: 2, Low: 3 }[a.priority]) - ({ Urgent: 0, High: 1, Medium: 2, Low: 3 }[b.priority]));
-    
-    return `${heading('Staff dashboard', 'Manage the queue, assign technicians, and track resolution metrics.', `<div class="flex gap-2.5 flex-wrap"><button onclick="App.exportCsv()" class="btn-ghost !py-2.5 !px-4 text-sm"><i data-lucide="download" class="w-4 h-4 text-[#a3ff12]"></i>Export CSV</button><button onclick="App.staffLogout()" class="btn-ghost !py-2.5 !px-4 text-sm"><i data-lucide="log-out" class="w-4 h-4 text-gray-400"></i>Sign out</button></div>`, 'MANAGEMENT')}
+
+    return `${heading('Staff dashboard', 'Manage the queue, assign technicians, and track resolution metrics.', `<div class="flex gap-2.5 flex-wrap"><button type="button" data-action="export-csv" class="btn-ghost !py-2.5 !px-4 text-sm"><i data-lucide="download" class="w-4 h-4 text-[#a3ff12]"></i>Export CSV</button><button type="button" data-action="staff-logout" class="btn-ghost !py-2.5 !px-4 text-sm"><i data-lucide="log-out" class="w-4 h-4 text-gray-400"></i>Sign out</button></div>`, 'MANAGEMENT')}
     <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
       ${stat('Needs action (Open)', c.open, 'text-amber-300')}
       ${stat('In progress', c.prog, 'text-[#a3ff12]')}
@@ -1022,10 +1202,10 @@ const App = (() => {
         <div class="space-y-4">${CATEGORIES.map(k => { const n = tickets.filter(t => t.category === k.name).length; return `<div><div class="flex justify-between text-sm mb-1.5"><span class="text-gray-300">${k.name}</span><span class="font-bold text-white font-mono">${n}</span></div><div class="h-2 rounded-full bg-white/10 overflow-hidden"><div class="h-2 rounded-full bg-[#a3ff12] shadow-[0_0_8px_rgba(163,255,18,0.6)]" style="width:${(n / max) * 100}%"></div></div></div>`; }).join('')}</div>
       </div>
       <div class="lg:col-span-2">
-        <div class="flex gap-2.5 overflow-x-auto pb-2 mb-4">${['ALL', ...STATUSES].map(s => `<button onclick="App.setStaffFilter('${s}')" class="shrink-0 rounded-full px-5 py-2 text-sm font-bold transition-all ${ui.staffFilter === s ? 'bg-[#a3ff12] text-[#0c0f0a] shadow-[0_4px_20px_rgba(163,255,18,0.35)]' : 'bg-white/[0.04] border border-white/10 text-gray-300 hover:text-white'}">${s === 'ALL' ? 'All' : s}</button>`).join('')}</div>
+        <div class="flex gap-2.5 overflow-x-auto pb-2 mb-4">${['ALL', ...STATUSES].map(s => `<button type="button" data-action="set-staff-filter" data-status="${s}" class="shrink-0 rounded-full px-5 py-2 text-sm font-bold transition-all ${ui.staffFilter === s ? 'bg-[#a3ff12] text-[#0c0f0a] shadow-[0_4px_20px_rgba(163,255,18,0.35)]' : 'bg-white/[0.04] border border-white/10 text-gray-300 hover:text-white'}">${s === 'ALL' ? 'All' : s}</button>`).join('')}</div>
         <div class="grid gap-3.5">${queue.map(t => {
-          const sla = getSlaInfo(t);
-          return `<div class="bg-card rounded-2xl p-5 border border-white/10 hover:border-[#a3ff12]/40 transition flex flex-col gap-3.5">
+      const sla = getSlaInfo(t);
+      return `<div class="bg-card rounded-2xl p-5 border border-white/10 hover:border-[#a3ff12]/40 transition flex flex-col gap-3.5">
             <div class="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
               <a href="#/ticket/${t.id}" class="min-w-0 flex-1 group">
                 <div class="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -1038,16 +1218,16 @@ const App = (() => {
                 <div class="text-xs text-gray-400 mt-1 truncate">${esc(t.location)} · ${esc(t.contactName)}</div>
               </a>
               <div class="flex flex-col sm:flex-row gap-2 shrink-0">
-                <select class="field !w-full sm:!w-44 !py-2 text-xs" onchange="App.assignTicket('${t.id}', this.value)" title="Assign Technician">
+                <select class="field !w-full sm:!w-44 !py-2 text-xs" data-change="assign-ticket" data-id="${t.id}" title="Assign Technician">
                   ${TECHNICIANS.map(tech => `<option value="${tech}" ${t.assignee === tech ? 'selected' : ''}>${tech.split(' ')[0]}</option>`).join('')}
                 </select>
-                <select class="field !w-full sm:!w-36 !py-2 text-xs" onchange="App.setTicketStatus('${t.id}', this.value)">
+                <select class="field !w-full sm:!w-36 !py-2 text-xs" data-change="set-ticket-status" data-id="${t.id}">
                   ${STATUSES.map(s => `<option ${t.status === s ? 'selected' : ''}>${s}</option>`).join('')}
                 </select>
               </div>
             </div>
           </div>`;
-        }).join('') || '<div class="bg-card rounded-3xl p-10 text-center text-gray-400 border border-white/10">No tickets in this view.</div>'}</div>
+    }).join('') || '<div class="bg-card rounded-3xl p-10 text-center text-gray-400 border border-white/10">No tickets in this view.</div>'}</div>
       </div>
     </div>`;
   }
@@ -1073,9 +1253,7 @@ const App = (() => {
       const vh = window.innerHeight || 800;
       const aboutH = about.offsetHeight || vh;
       track.style.setProperty('--about-height', `${aboutH}px`);
-      // Services overlaps the final screen height of track
       services.style.marginTop = `-${aboutH}px`;
-      // Track height gives 65% of vh for statement focus + full vh for services slide-up
       const focusDistance = Math.round(vh * 0.65);
       track.style.minHeight = `${aboutH + focusDistance + vh}px`;
       update();
@@ -1092,16 +1270,13 @@ const App = (() => {
       const scrolledInTrack = -trackRect.top;
       targetProgress = clamp(scrolledInTrack / totalScrollDistance);
 
-      // Smooth silky spring interpolation
       currProgress += (targetProgress - currProgress) * 0.28;
       if (Math.abs(targetProgress - currProgress) < 0.0008) currProgress = targetProgress;
 
       const p = currProgress;
-      const focusEnd = focusDistance / totalScrollDistance; // ~0.39
+      const focusEnd = focusDistance / totalScrollDistance;
 
-      // 1. Camera Defocus-to-Focus Scrollytelling on statement words
       if (words.length) {
-        // Words progressively snap into focus during the focus phase
         const textP = clamp(p / (focusEnd * 0.88));
         const activeCount = Math.ceil(textP * words.length);
 
@@ -1115,26 +1290,22 @@ const App = (() => {
             w.style.transform = 'translateY(0) scale(1)';
           } else {
             const dist = idx - activeCount;
-            const blurVal = Math.min(8, 2 + dist * 1.0);
+            const blurVal = Math.min(14, 3.5 + dist * 1.6);
             w.style.filter = `blur(${blurVal.toFixed(1)}px)`;
-            w.style.opacity = Math.max(0.28, (0.42 - dist * 0.015)).toFixed(2);
-            w.style.transform = `translateY(${Math.min(8, 2 + dist * 0.9).toFixed(1)}px) scale(0.98)`;
+            w.style.opacity = Math.max(0.14, (0.24 - dist * 0.018)).toFixed(2);
+            w.style.transform = `translateY(${Math.min(12, 3 + dist * 1.3).toFixed(1)}px) scale(0.96)`;
           }
         });
       }
 
-      // 2. Seamless Transition into Image 3 (Services: Browse by Category)
-      // As services slides up from the bottom over about, about gracefully recedes with optical depth blur
       if (p <= focusEnd) {
         about.style.opacity = '1';
         about.style.transform = 'none';
         about.style.filter = 'none';
       } else {
         const wipeProgress = clamp((p - focusEnd) / (1 - focusEnd));
-        // Smooth Hermite easing for silky wipe
         const eased = wipeProgress * wipeProgress * (3 - 2 * wipeProgress);
 
-        // Background panel gracefully recedes with subtle optical depth blur
         about.style.opacity = (1 - eased * 0.45).toFixed(3);
         about.style.transform = `scale(${(1 - 0.045 * eased).toFixed(4)}) translateY(${(-32 * eased).toFixed(1)}px)`;
         about.style.filter = `blur(${(eased * 10).toFixed(1)}px)`;
@@ -1196,7 +1367,9 @@ const App = (() => {
     else if (path === '/directory') html = `<div class="zen-page-wrap">${pageDirectory()}</div>`;
     else if (path === '/staff') html = `<div class="zen-page-wrap">${pageStaff()}</div>`;
     else html = `<div class="zen-page-wrap text-center py-24"><div class="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-[#a3ff12] mb-3 font-semibold">// 404 ERROR</div><h1 class="text-4xl font-extrabold text-white">Page not found</h1><p class="text-gray-400 mt-2">The route you requested doesn't exist.</p><a href="#/" class="btn-primary mt-6 inline-flex">Go Home</a></div>`;
-    $('app').innerHTML = `<div class="page">${html}</div>`;
+    
+    const appEl = $('app');
+    if (appEl) appEl.innerHTML = `<div class="page">${html}</div>`;
     if (path === '/requests') renderRequestList();
     window.scrollTo(0, 0);
     lucide.createIcons();
@@ -1205,13 +1378,43 @@ const App = (() => {
   }
   const refresh = () => { const y = scrollY; render(); scrollTo(0, y); };
 
-  /* ---------- actions ---------- */
+  /* ============ LIGHTBOX FOCUS TRAP ============ */
+  let lastFocusedElement = null;
+
+  function openImageModal(src) {
+    const modal = $('img-modal');
+    const img = $('img-modal-src');
+    const closeBtn = $('img-modal-close');
+    if (modal && img) {
+      lastFocusedElement = document.activeElement;
+      img.src = src;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      if (closeBtn) closeBtn.focus();
+      lucide.createIcons();
+    }
+  }
+
+  function closeImageModal() {
+    const modal = $('img-modal');
+    if (modal && !modal.classList.contains('hidden')) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+        lastFocusedElement.focus();
+      }
+    }
+  }
+
+  /* ============ ACTIONS & PUBLIC API ============ */
   const api = {
     pickCat(n) {
       ui.draftCat = n;
       playTone('click');
-      $('cat-grid').innerHTML = CATEGORIES.map(catBtn).join('');
-      $('e-cat').classList.add('hidden');
+      const grid = $('cat-grid');
+      if (grid) grid.innerHTML = CATEGORIES.map(catBtn).join('');
+      const err = $('e-cat');
+      if (err) err.classList.add('hidden');
       const d = $('f-dept');
       if (d && DEPT_MAP[n]) d.value = DEPT_MAP[n];
       lucide.createIcons();
@@ -1219,7 +1422,8 @@ const App = (() => {
     pickPrio(p) {
       ui.draftPrio = p;
       playTone('click');
-      $('prio-grid').innerHTML = PRIORITIES.map(prioBtn).join('');
+      const grid = $('prio-grid');
+      if (grid) grid.innerHTML = PRIORITIES.map(prioBtn).join('');
     },
     handleImageUpload(e) {
       const file = e.target.files && e.target.files[0];
@@ -1236,43 +1440,6 @@ const App = (() => {
         lucide.createIcons();
       });
     },
-    onDragOver(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      const drop = $('image-dropzone');
-      if (drop) {
-        drop.classList.add('border-[#a3ff12]', 'bg-[#a3ff12]/10');
-      }
-    },
-    onDragLeave(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      const drop = $('image-dropzone');
-      if (drop) {
-        drop.classList.remove('border-[#a3ff12]', 'bg-[#a3ff12]/10');
-      }
-    },
-    onDrop(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      const drop = $('image-dropzone');
-      if (drop) {
-        drop.classList.remove('border-[#a3ff12]', 'bg-[#a3ff12]/10');
-      }
-      const files = e.dataTransfer && e.dataTransfer.files;
-      if (files && files.length) {
-        compressImage(files[0], base64 => {
-          ui.draftImage = base64;
-          const img = $('image-preview');
-          if (img) img.src = base64;
-          const wrap = $('image-preview-wrap');
-          if (wrap) wrap.classList.remove('hidden');
-          if (drop) drop.classList.add('hidden');
-          playTone('click');
-          lucide.createIcons();
-        });
-      }
-    },
     removeImage() {
       ui.draftImage = null;
       const inp = $('f-image-input');
@@ -1284,14 +1451,7 @@ const App = (() => {
       playTone('click');
     },
     zoomImage(src) {
-      const modal = $('img-modal');
-      const img = $('img-modal-src');
-      if (modal && img) {
-        img.src = src;
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        lucide.createIcons();
-      }
+      openImageModal(src);
     },
     onReportTyping() {
       const title = $('f-title') ? $('f-title').value : '';
@@ -1315,18 +1475,17 @@ const App = (() => {
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <a href="#/ticket/${d.id}" class="btn-ghost !py-2 !px-3 text-xs font-semibold">View Ticket</a>
-              <button type="button" onclick="App.upvote('${d.id}')" class="btn-primary !py-2 !px-4 text-xs font-bold shadow-none">+1 Upvote Instead</button>
+              <button type="button" data-action="upvote" data-id="${d.id}" class="btn-primary !py-2 !px-4 text-xs font-bold shadow-none">+1 Upvote Instead</button>
             </div>
-          </div>
-        `;
+          </div>`;
         alertBox.classList.remove('hidden');
         lucide.createIcons();
       } else {
         alertBox.classList.add('hidden');
       }
     },
-    setZone(zoneId) {
-      ui.filterZone = ui.filterZone === zoneId ? 'ALL' : zoneId;
+    setZone(z) {
+      ui.filterZone = z;
       playTone('click');
       render();
     },
@@ -1334,14 +1493,28 @@ const App = (() => {
       const t = tickets.find(x => x.id === id);
       if (!t) return;
       t.assignee = assignee;
-      t.timeline.push({ status: t.status, at: new Date().toISOString(), note: `Technician assigned: ${assignee}` });
+      t.timeline.push({ status: t.status, at: new Date().toISOString(), note: `Assigned to ${assignee}` });
       save();
       playTone('click');
       toast(`Assigned ${id} to ${assignee.split(' ')[0]}`);
+
+      // In-place update if on ticket page
+      const assigneeEl = $('ticket-assignee');
+      if (assigneeEl) {
+        assigneeEl.textContent = assignee;
+        const timelineEl = $('ticket-timeline');
+        if (timelineEl) {
+          const lastEvent = t.timeline[t.timeline.length - 1];
+          const li = document.createElement('li');
+          li.className = 'pl-6 relative';
+          li.innerHTML = `<span class="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full bg-[#a3ff12] shadow-[0_0_10px_#a3ff12]"></span><div class="flex items-center gap-2 text-sm font-semibold text-white">${lastEvent.status}<span class="text-xs text-gray-400 font-normal font-mono">${fmt(lastEvent.at)}</span></div><p class="text-sm text-gray-400 mt-1 leading-relaxed">${esc(lastEvent.note || '')}</p>`;
+          timelineEl.prepend(li);
+        }
+        return;
+      }
       refresh();
     },
-    addComment(e, id) {
-      e.preventDefault();
+    addComment(id) {
       const t = tickets.find(x => x.id === id);
       if (!t) return;
       const textEl = $('c-text');
@@ -1350,12 +1523,38 @@ const App = (() => {
       if (!text) return;
       const author = (authorEl && authorEl.value.trim()) || (isStaff() ? 'Campus Staff' : 'Student');
       const role = isStaff() ? 'staff' : 'student';
+      const newComment = { author: sanitize(author), role, text: sanitize(text), at: new Date().toISOString() };
       if (!Array.isArray(t.comments)) t.comments = [];
-      t.comments.push({ author, role, text, at: new Date().toISOString() });
+      t.comments.push(newComment);
       save();
       localStorage.setItem('unidesk_name', author);
       playTone('pop');
       toast('Clarification posted');
+
+      // In-place targeted DOM update
+      const listEl = $('comments-list');
+      const countEl = $('comments-count');
+      if (listEl) {
+        const emptyNotice = listEl.querySelector('.comments-empty');
+        if (emptyNotice) emptyNotice.remove();
+
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `rounded-2xl p-4 border ${role === 'staff' ? 'bg-[#152011]/80 border-[#a3ff12]/30 text-white ml-3 sm:ml-6' : 'bg-white/[0.04] border-white/10 text-gray-200 mr-3 sm:mr-6'} animate-fade`;
+        msgDiv.innerHTML = `
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-sm text-white">${esc(newComment.author)}</span>
+              <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full ${role === 'staff' ? 'bg-[#a3ff12] text-[#0c0f0a] font-bold' : 'bg-white/10 text-gray-400'}">${role === 'staff' ? 'Staff' : 'Student'}</span>
+            </div>
+            <span class="text-[11px] text-gray-400 font-mono">just now</span>
+          </div>
+          <p class="text-sm leading-relaxed">${esc(newComment.text)}</p>
+        `;
+        listEl.appendChild(msgDiv);
+        if (countEl) countEl.textContent = `${t.comments.length} message${t.comments.length === 1 ? '' : 's'}`;
+        if (textEl) textEl.value = '';
+        return;
+      }
       refresh();
     },
     rateTicket(id, stars) {
@@ -1366,6 +1565,22 @@ const App = (() => {
       playTone('success');
       launchConfetti();
       toast(`Thank you! Rated ${stars} star${stars > 1 ? 's' : ''}`);
+
+      // In-place targeted DOM update
+      const starsBox = $('csat-stars');
+      if (starsBox) {
+        const btns = starsBox.querySelectorAll('[data-action="rate-ticket"]');
+        btns.forEach(b => {
+          const s = parseInt(b.dataset.stars, 10);
+          b.classList.toggle('active', s <= stars);
+        });
+        const badge = $('csat-rated-badge');
+        if (badge) {
+          badge.textContent = `Rated ${stars}.0 / 5.0`;
+          badge.classList.remove('hidden');
+        }
+        return;
+      }
       refresh();
     },
     toggleFeedbackTag(id, tag) {
@@ -1373,36 +1588,59 @@ const App = (() => {
       if (!t) return;
       if (!Array.isArray(t.feedback)) t.feedback = [];
       const idx = t.feedback.indexOf(tag);
-      if (idx > -1) t.feedback.splice(idx, 1);
-      else t.feedback.push(tag);
+      const added = idx === -1;
+      if (added) t.feedback.push(tag);
+      else t.feedback.splice(idx, 1);
       save();
       playTone('click');
+
+      // In-place targeted DOM update
+      const tagBtn = document.querySelector(`[data-action="toggle-tag"][data-id="${id}"][data-tag="${tag}"]`);
+      if (tagBtn) {
+        tagBtn.className = `text-xs px-3 py-1.5 rounded-full border transition-all ${added ? 'bg-[#a3ff12]/20 border-[#a3ff12] text-[#a3ff12] font-semibold' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/20'}`;
+        return;
+      }
       refresh();
     },
     submitReport(e) {
       e.preventDefault();
       const v = id => ($(id) ? $(id).value.trim() : '');
       const checks = [
-        ['e-cat', !!ui.draftCat, null], ['e-title', v('f-title').length >= 5, 'f-title'], ['e-loc', !!v('f-loc'), 'f-loc'],
-        ['e-name', !!v('f-name'), 'f-name'], ['e-desc', v('f-desc').length >= 10, 'f-desc'],
+        ['e-cat', !!ui.draftCat],
+        ['e-title', v('f-title').length >= 5, 'f-title'],
+        ['e-loc', v('f-loc').length >= 2, 'f-loc'],
+        ['e-name', v('f-name').length >= 2, 'f-name'],
+        ['e-desc', v('f-desc').length >= 10, 'f-desc']
       ];
       let ok = true;
-      checks.forEach(([err, pass, inp]) => { $(err).classList.toggle('hidden', pass); if (inp) $(inp).classList.toggle('err', !pass); if (!pass) ok = false; });
-      if (!ok) { const first = document.querySelector('.err, #e-cat:not(.hidden)'); first && first.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+      checks.forEach(([err, pass, inp]) => {
+        const errEl = $(err);
+        if (errEl) errEl.classList.toggle('hidden', pass);
+        if (inp && $(inp)) {
+          $(inp).classList.toggle('err', !pass);
+          $(inp).setAttribute('aria-invalid', !pass ? 'true' : 'false');
+        }
+        if (!pass) ok = false;
+      });
+      if (!ok) {
+        const first = document.querySelector('.err, #e-cat:not(.hidden)');
+        first && first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
       const next = Math.max(100, ...tickets.map(t => parseInt(t.id.split('-')[1], 10) || 0)) + 1;
       const now = new Date().toISOString();
       const dept = v('f-dept') || DEPT_MAP[ui.draftCat] || 'General Administration';
       const sid = v('f-sid');
       const t = {
         id: 'CC-' + next,
-        title: v('f-title'),
+        title: sanitize(v('f-title')),
         category: ui.draftCat,
         department: dept,
         priority: ui.draftPrio,
-        location: v('f-loc'),
-        contactName: v('f-name'),
-        studentId: sid || undefined,
-        description: v('f-desc'),
+        location: sanitize(v('f-loc')),
+        contactName: sanitize(v('f-name')),
+        studentId: sid ? sanitize(sid) : undefined,
+        description: sanitize(v('f-desc')),
         upvotes: 1,
         status: 'Open',
         createdAt: now,
@@ -1411,7 +1649,8 @@ const App = (() => {
         comments: [],
         image: ui.draftImage || undefined
       };
-      tickets.unshift(t); save();
+      tickets.unshift(t);
+      save();
       localStorage.setItem('unidesk_name', t.contactName);
       ui.draftCat = ''; ui.draftPrio = 'Medium'; ui.draftImage = null;
       playTone('success');
@@ -1427,14 +1666,21 @@ const App = (() => {
           <div class="text-xs text-gray-400 mt-2 flex items-center justify-center gap-1.5"><i data-lucide="building-2" class="w-3.5 h-3.5 text-[#a3ff12]"></i>Routed to <span class="text-[#a3ff12] font-semibold">${esc(t.department)}</span></div>
         </div>
         <div class="flex flex-col sm:flex-row gap-3 justify-center"><a href="#/ticket/${t.id}" class="btn-primary">View ticket details</a><a href="#/report" class="btn-ghost">Submit another</a></div></div></div>`;
-      window.scrollTo(0, 0); lucide.createIcons();
+      window.scrollTo(0, 0);
+      lucide.createIcons();
     },
     trackById(e) {
       e.preventDefault();
-      const id = $('track-id').value.trim().toUpperCase();
+      const inp = $('track-id');
+      const id = inp ? inp.value.trim().toUpperCase() : '';
       const found = tickets.find(t => t.id === id);
-      if (found) { playTone('click'); location.hash = '#/ticket/' + id; }
-      else $('track-err').classList.remove('hidden');
+      if (found) {
+        playTone('click');
+        location.hash = '#/ticket/' + id;
+      } else {
+        const err = $('track-err');
+        if (err) err.classList.remove('hidden');
+      }
     },
     setQ(v) { ui.q = v; renderRequestList(); },
     setCat(v) { ui.filterCat = v; playTone('click'); renderRequestList(); },
@@ -1450,6 +1696,24 @@ const App = (() => {
       save();
       playTone('pop');
       toast('Thanks! Marked as affected');
+
+      // 1. In-place update on ticket detail page
+      const detailBtn = document.querySelector(`[data-action="upvote"][data-id="${id}"]`);
+      if (detailBtn) {
+        detailBtn.innerHTML = `<i data-lucide="thumbs-up" class="w-4 h-4 text-[#a3ff12]"></i>+1 Affected · ${t.upvotes}`;
+        lucide.createIcons();
+        detailBtn.classList.add('scale-105');
+        setTimeout(() => detailBtn.classList.remove('scale-105'), 180);
+        return;
+      }
+
+      // 2. In-place update on requests page list card
+      const cardEl = document.querySelector(`[data-ticket-card="${id}"] .vote-count`);
+      if (cardEl) {
+        cardEl.textContent = `${t.upvotes} affected`;
+        return;
+      }
+
       refresh();
     },
     setTicketStatus(id, status) {
@@ -1467,21 +1731,82 @@ const App = (() => {
         playTone('click');
       }
       toast(`${id} is now ${status}`);
+
+      // In-place update if on detail page
+      const statusChipEl = $('ticket-status-chip');
+      const stepperEl = $('ticket-stepper');
+      if (statusChipEl && stepperEl) {
+        statusChipEl.innerHTML = statusChip(status);
+        const idx = STATUSES.indexOf(status);
+        stepperEl.innerHTML = `<div class="flex items-start">${[0, 1, 2].map(i => `<div class="flex-1 flex flex-col items-center text-center gap-2 relative">${i > 0 ? `<div class="absolute top-4 right-1/2 w-full h-0.5 ${i <= idx ? 'bg-[#a3ff12]' : 'bg-white/10'}"></div>` : ''}<div class="relative z-10 w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${i <= idx ? 'bg-[#a3ff12] text-[#0c0f0a] shadow-[0_0_16px_rgba(163,255,18,0.5)]' : 'bg-white/10 text-gray-400'}"><i data-lucide="${i <= idx ? 'check' : 'circle'}" class="w-4 h-4"></i></div><span class="text-xs font-semibold ${i <= idx ? 'text-white' : 'text-gray-400'}">${STATUSES[i]}</span></div>`).join('')}</div>`;
+        const staffBox = $('staff-action-box');
+        if (staffBox) {
+          const btns = staffBox.querySelectorAll('[data-action="set-ticket-status"]');
+          btns.forEach(b => {
+            const isCur = b.dataset.status === status;
+            b.className = `rounded-xl px-4 py-2 text-sm font-bold border transition-all ${isCur ? 'border-[#a3ff12] bg-[#a3ff12]/20 text-[#a3ff12] shadow-[0_0_15px_rgba(163,255,18,0.25)]' : 'border-white/15 bg-white/[0.03] text-gray-300 hover:border-[#a3ff12]/50 hover:text-white'}`;
+          });
+        }
+        const timelineEl = $('ticket-timeline');
+        if (timelineEl) {
+          const lastEvent = t.timeline[t.timeline.length - 1];
+          const li = document.createElement('li');
+          li.className = 'pl-6 relative';
+          li.innerHTML = `<span class="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full bg-[#a3ff12] shadow-[0_0_10px_#a3ff12]"></span><div class="flex items-center gap-2 text-sm font-semibold text-white">${lastEvent.status}<span class="text-xs text-gray-400 font-normal font-mono">${fmt(lastEvent.at)}</span></div><p class="text-sm text-gray-400 mt-1 leading-relaxed">${esc(lastEvent.note || '')}</p>`;
+          timelineEl.prepend(li);
+        }
+        lucide.createIcons();
+        return;
+      }
+
       refresh();
     },
-    staffLogin(e) {
+    async staffLogin(e) {
       e.preventDefault();
-      if ($('pin').value === STAFF_PIN) {
-        sessionStorage.setItem(STAFF_KEY, '1');
+      const pinVal = $('pin') ? $('pin').value : '';
+      const pinErr = $('pin-err');
+
+      // Rate limit / Lockout check
+      const lockout = parseInt(sessionStorage.getItem('unidesk_lockout') || '0', 10);
+      if (Date.now() < lockout) {
+        const secs = Math.ceil((lockout - Date.now()) / 1000);
+        if (pinErr) {
+          pinErr.textContent = `Security lockout active. Please wait ${secs}s.`;
+          pinErr.classList.remove('hidden');
+        }
+        return;
+      }
+
+      const inputHash = await sha256(SALT + pinVal);
+      if (inputHash === PIN_HASH) {
+        sessionStorage.removeItem('unidesk_lockout');
+        sessionStorage.removeItem('unidesk_attempts');
+        const token = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
+        const sessionData = {
+          role: 'staff',
+          token,
+          expiresAt: Date.now() + 8 * 3600 * 1000 // 8 hours
+        };
+        sessionStorage.setItem(TOKEN_KEY, JSON.stringify(sessionData));
         playTone('success');
         toast('Signed in as staff');
         render();
       } else {
-        $('pin-err').classList.remove('hidden');
+        let attempts = parseInt(sessionStorage.getItem('unidesk_attempts') || '0', 10) + 1;
+        sessionStorage.setItem('unidesk_attempts', String(attempts));
+        if (pinErr) {
+          if (attempts >= 5) {
+            sessionStorage.setItem('unidesk_lockout', String(Date.now() + 30000));
+            pinErr.textContent = 'Too many failed attempts. Locked for 30s.';
+          } else {
+            pinErr.textContent = `Incorrect PIN. (${5 - attempts} attempts left)`;
+          }
+          pinErr.classList.remove('hidden');
+        }
       }
     },
     staffLogout() {
-      sessionStorage.removeItem(STAFF_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
       playTone('click');
       toast('Signed out');
       render();
@@ -1556,24 +1881,175 @@ const App = (() => {
     },
   };
 
-  load();
-  window.addEventListener('hashchange', render);
-  window.addEventListener('pointermove', e => {
-    const h = document.querySelector('.zen-hero'); if (!h) return;
-    h.style.setProperty('--mx', (e.clientX / innerWidth - 0.5).toFixed(3));
-    h.style.setProperty('--my', (e.clientY / innerHeight - 0.5).toFixed(3));
+  /* ============ GLOBAL EVENT DELEGATION ============ */
+  document.addEventListener('click', e => {
+    // Modal close handling
+    const closeEl = e.target.closest('[data-action="close-modal"]');
+    if (closeEl) {
+      if (e.target.closest('[data-modal-content="true"]') && !e.target.closest('#img-modal-close')) {
+        return; // Click within modal body, don't dismiss
+      }
+      closeImageModal();
+      return;
+    }
+
+    const actionEl = e.target.closest('[data-action]');
+    if (!actionEl) return;
+
+    const action = actionEl.dataset.action;
+    const id = actionEl.dataset.id;
+
+    if (action === 'zoom-ticket') {
+      const t = tickets.find(x => x.id === id);
+      if (t && t.image) openImageModal(t.image);
+    } else if (action === 'upvote') {
+      api.upvote(id);
+    } else if (action === 'rate-ticket') {
+      const stars = parseInt(actionEl.dataset.stars, 10);
+      api.rateTicket(id, stars);
+    } else if (action === 'toggle-tag') {
+      const tag = actionEl.dataset.tag;
+      api.toggleFeedbackTag(id, tag);
+    } else if (action === 'pick-cat') {
+      api.pickCat(actionEl.dataset.cat);
+    } else if (action === 'pick-prio') {
+      api.pickPrio(actionEl.dataset.prio);
+    } else if (action === 'set-zone') {
+      api.setZone(actionEl.dataset.zone);
+    } else if (action === 'clear-zone') {
+      api.setZone('ALL');
+    } else if (action === 'set-status') {
+      api.setStatus(actionEl.dataset.status);
+    } else if (action === 'set-ticket-status') {
+      api.setTicketStatus(id, actionEl.dataset.status);
+    } else if (action === 'set-faq') {
+      api.setFaq(actionEl.dataset.cat);
+    } else if (action === 'set-staff-filter') {
+      api.setStaffFilter(actionEl.dataset.status);
+    } else if (action === 'export-csv') {
+      api.exportCsv();
+    } else if (action === 'staff-logout') {
+      api.staffLogout();
+    } else if (action === 'trigger-upload') {
+      const inp = $('f-image-input');
+      if (inp) inp.click();
+    } else if (action === 'remove-image') {
+      api.removeImage();
+    } else if (action === 'add-demo') {
+      api.addDemoData();
+    } else if (action === 'reset-demo') {
+      api.resetData();
+    }
   });
 
-  /* Global Keyboard Shortcuts */
+  document.addEventListener('change', e => {
+    const el = e.target.closest('[data-change]');
+    if (!el) return;
+    const type = el.dataset.change;
+    const id = el.dataset.id;
+
+    if (type === 'image-upload') {
+      api.handleImageUpload(e);
+    } else if (type === 'assign-ticket') {
+      api.assignTicket(id, el.value);
+    } else if (type === 'set-ticket-status') {
+      api.setTicketStatus(id, el.value);
+    } else if (type === 'filter-cat') {
+      api.setCat(el.value);
+    } else if (type === 'filter-dept') {
+      api.setDept(el.value);
+    } else if (type === 'sort-requests') {
+      api.setSort(el.value);
+    }
+  });
+
+  document.addEventListener('submit', e => {
+    const form = e.target.closest('[data-submit]');
+    if (!form) return;
+    const type = form.dataset.submit;
+    const id = form.dataset.id;
+
+    if (type === 'report-submit') {
+      api.submitReport(e);
+    } else if (type === 'track-submit') {
+      api.trackById(e);
+    } else if (type === 'comment-submit') {
+      e.preventDefault();
+      api.addComment(id);
+    } else if (type === 'staff-login-submit') {
+      api.staffLogin(e);
+    }
+  });
+
+  /* 250ms Debounced input listener */
+  function debounce(fn, wait = 250) {
+    let timer;
+    return function (...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn.apply(this, args), wait);
+    };
+  }
+
+  const debouncedReportTyping = debounce(() => {
+    api.onReportTyping();
+  }, 250);
+
+  document.addEventListener('input', e => {
+    const el = e.target.closest('[data-input]');
+    if (!el) return;
+    const type = el.dataset.input;
+
+    if (type === 'report-typing') {
+      const descCount = $('desc-count');
+      const fDesc = $('f-desc');
+      if (descCount && fDesc) descCount.textContent = fDesc.value.length;
+      debouncedReportTyping();
+    } else if (type === 'search-requests') {
+      api.setQ(el.value);
+    }
+  });
+
+  /* ============ THROTTLED POINTERMOVE LISTENER ============ */
+  let pointerRafId = null;
+  window.addEventListener('pointermove', e => {
+    if (pointerRafId) return;
+    pointerRafId = requestAnimationFrame(() => {
+      const h = document.querySelector('.zen-hero');
+      if (h) {
+        h.style.setProperty('--mx', (e.clientX / innerWidth - 0.5).toFixed(3));
+        h.style.setProperty('--my', (e.clientY / innerHeight - 0.5).toFixed(3));
+      }
+      pointerRafId = null;
+    });
+  }, { passive: true });
+
+  /* ============ GLOBAL KEYBOARD SHORTCUTS & FOCUS TRAP ============ */
   window.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      const modal = $('img-modal');
-      if (modal && !modal.classList.contains('hidden')) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
+    const modal = $('img-modal');
+    const isModalOpen = modal && !modal.classList.contains('hidden');
+
+    if (isModalOpen) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeImageModal();
+        return;
+      } else if (e.key === 'Tab') {
+        const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (focusable.length > 0) {
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
         return;
       }
     }
+
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement && document.activeElement.tagName)) return;
     if (e.key === '/') {
       e.preventDefault();
@@ -1585,6 +2061,30 @@ const App = (() => {
     }
   });
 
-  window.addEventListener('DOMContentLoaded', render);
+  /* Service Worker Registration */
+  if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(err => {
+        console.debug('ServiceWorker registration skipped:', err);
+      });
+    });
+  }
+
+  /* Initialization */
+  window.addEventListener('hashchange', () => {
+    if (confettiRafId) {
+      cancelAnimationFrame(confettiRafId);
+      confettiRafId = null;
+      $('confetti-canvas')?.classList.add('hidden');
+    }
+    closeImageModal();
+    render();
+  });
+
+  window.addEventListener('DOMContentLoaded', async () => {
+    await load();
+    render();
+  });
+
   return api;
 })();

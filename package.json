@@ -1,0 +1,16 @@
+{
+  "name": "unidesk-campus-helpdesk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Next-Gen Campus Operations & Helpdesk Web Application",
+  "scripts": {
+    "build:css": "tailwindcss -i src/input.css -o style.css --minify",
+    "watch:css": "tailwindcss -i src/input.css -o style.css --watch",
+    "serve": "npx serve .",
+    "test": "node test-audit-fixes.js"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}
+

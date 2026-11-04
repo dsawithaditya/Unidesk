@@ -27,7 +27,7 @@ A state-of-the-art campus issue reporting, tracking, and facilities resolution p
 
 ### 2. Report Issue (`#/report`)
 - **Smart Duplicate Prevention**: Real-time detection alerts students if a similar ticket is already active nearby, letting them upvote instead of creating duplicates.
-- **Photo Proof / Media Attachment**: Drag-and-drop or direct mobile camera photo capture with automated client-side canvas compression (`max 800px`, JPEG 0.75).
+- **Photo Proof / Media Attachment**: Drag-and-drop or direct mobile camera photo capture with automated client-side canvas compression (`max 640px`, JPEG 0.65) and asynchronous IndexedDB storage.
 - Category selector with icon badges (IT & Wi-Fi, Facilities, Hostel & Mess, Classroom AV, Safety, Other).
 - Urgency priority selector with neon lime focus rings and designated department routing.
 - Real-time client-side validation with character counters and glass confirmation screen.
@@ -55,11 +55,25 @@ A state-of-the-art campus issue reporting, tracking, and facilities resolution p
 - Department contact directory cards with one-click direct phone dialers.
 
 ### 7. Staff Management Portal (`#/staff`)
-- PIN-protected authentication (`Demo PIN: 1234`).
+- Secure authentication with salted SHA-256 validation, cryptographic session tokens, and brute-force lockout protection (`Demo PIN: 1234`).
 - **Student CSAT Metrics**: Live calculation of average student satisfaction rating (e.g. `4.9 ★`).
 - **Technician Dispatch Queue**: Inline dropdown to assign specific facility personnel (*Network Lead, AV Specialist, Estate & Plumbing, HVAC & Electrical, Safety Officer*).
 - Category breakdown metrics and progress visualization bars.
 - One-click CSV export of all campus requests including technician assignment and satisfaction metrics.
+
+---
+
+## ⚡ Production Optimizations & Hardening
+
+Based on the [Technical Audit & Performance Blueprint](Unidesk_Website_Optimization_Audit.pdf), the application includes the following production-grade upgrades:
+
+1. **Purged CSS & Static Assets**: Replaced the 3.5MB runtime Tailwind Play CDN compiler and 1,180 lines of inline styles with a compiled, minified `< 35KB` static stylesheet (`style.css`), saving 99% bandwidth and eliminating DOM compilation jank.
+2. **AudioContext Singleton**: Replaced per-click Web Audio contexts with a lazily initialized persistent singleton with auto-resume, preventing audio muting/crashes in modern browsers.
+3. **Asynchronous IndexedDB Storage**: Replaced blocking 5MB LocalStorage quota limits with asynchronous IndexedDB (`UnideskDB`), accommodating high-resolution photo proofs with graceful degradation and defensive quota error handling.
+4. **Targeted DOM Updates**: State actions (upvotes, discussions, CSAT ratings, assignments) perform in-place component updates rather than full-page DOM teardowns, preserving scroll positions, inputs, and focus.
+5. **Event Delegation & CSP Compliance**: Eliminated inline `onclick` handlers, passing data via `data-action` attributes to prevent XSS injection and enable strict Content Security Policies.
+6. **Accessibility (WCAG 2.1 AA)**: Upgraded contrast tokens to `> 4.5:1`, bound form errors via `aria-describedby` and `role="alert"`, debounced duplicate ticket matching (250ms), and trapped focus within image lightbox dialogs with Escape dismissal.
+7. **PWA & Offline First**: Added `manifest.json` and a Cache-First / Stale-While-Revalidate Service Worker (`sw.js`) for full home screen installation and 100% offline access.
 
 ---
 

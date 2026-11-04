@@ -1,0 +1,27 @@
+{
+  "name": "Unidesk Campus Helpdesk",
+  "short_name": "Unidesk",
+  "description": "Report, track and resolve campus issues with clarity, speed and impact.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#080a07",
+  "theme_color": "#a3ff12",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "logo-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo-icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["education", "utilities", "productivity"]
+}
+

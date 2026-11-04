@@ -1,627 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Unidesk | Campus Helpdesk</title>
+  <title>Unidesk | Campus Helpdesk &amp; Operations</title>
   <meta name="description" content="Report, track and resolve campus issues with clarity, speed and impact.">
+
+  <!-- Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self';">
+
+  <!-- PWA & Mobile Meta Tags -->
+  <meta name="theme-color" content="#a3ff12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Unidesk">
+  <link rel="manifest" href="manifest.json">
+
+  <!-- OpenGraph & Social Sharing Meta Tags -->
+  <meta property="og:title" content="Unidesk | Next-Gen Campus Operations &amp; Helpdesk">
+  <meta property="og:description" content="Report, track and resolve campus issues with clarity, speed and impact.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="logo.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Unidesk | Next-Gen Campus Operations &amp; Helpdesk">
+  <meta name="twitter:description" content="Report, track and resolve campus issues with clarity, speed and impact.">
+  <meta name="twitter:image" content="logo.png">
+
+  <!-- Icons -->
   <link rel="icon" type="image/svg+xml" href="logo-icon.svg">
   <link rel="alternate icon" type="image/png" href="logo-icon.png">
   <link rel="apple-touch-icon" href="logo-icon.png">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Fonts & Stylesheet (Vite/Tailwind Purged CSS + Zen Design System) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <script>
-    tailwind.config = {
-      theme: { extend: {
-        fontFamily: { sans: ['Outfit', 'system-ui', 'sans-serif'] },
-        colors: { bg: '#080a07', card: '#121810', lime: '#a3ff12', cyan: '#a3ff12', teal: '#487512', ink: '#0c0f0a' }
-      } }
-    }
-  </script>
-  <style>
-    html { scroll-behavior: smooth; }
-    body {
-      background-color: #080a07;
-      color: #f3f5ed;
-      font-family: 'Outfit', system-ui, sans-serif !important;
-      background-image: 
-        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(163, 255, 18, 0.12), transparent 70%),
-        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-      background-size: 100% 100%, 56px 56px, 56px 56px;
-      background-attachment: fixed;
-      min-height: 100vh;
-    }
-    .page { animation: fade .3s cubic-bezier(.2,.8,.2,1); }
-    @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  <link rel="stylesheet" href="style.css">
 
-    /* ============ GLOBAL ZEN DESIGN SYSTEM ============ */
-    .bg-card {
-      background: rgba(16, 22, 14, 0.72) !important;
-      -webkit-backdrop-filter: blur(18px) saturate(150%);
-      backdrop-filter: blur(18px) saturate(150%);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-      transition: border-color 0.25s cubic-bezier(.2,.8,.2,1), transform 0.25s cubic-bezier(.2,.8,.2,1), box-shadow 0.25s;
-    }
-    .bg-card:hover {
-      border-color: rgba(163, 255, 18, 0.32);
-    }
-
-    .field {
-      width: 100%;
-      background: rgba(12, 16, 10, 0.85);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 14px;
-      padding: 12px 16px;
-      color: #fff;
-      font-family: 'Outfit', sans-serif;
-      font-size: 15px;
-      transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
-    }
-    .field::placeholder { color: rgba(255, 255, 255, 0.42); }
-    .field:focus {
-      outline: none;
-      border-color: #a3ff12;
-      background: rgba(16, 22, 14, 0.95);
-      box-shadow: 0 0 0 3px rgba(163, 255, 18, 0.22);
-    }
-    .field.err { border-color: #f87171; box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.2); }
-    select.field option {
-      background: #0e140d;
-      color: #ffffff;
-      padding: 10px 14px;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #d6ff63, #a3ff12);
-      color: #0c0f0a;
-      font-family: 'Outfit', sans-serif;
-      font-weight: 700;
-      border-radius: 9999px;
-      padding: 12px 24px;
-      box-shadow: 0 8px 30px rgba(163, 255, 18, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-      transition: transform 0.2s cubic-bezier(.2,.8,.2,1), box-shadow 0.2s, filter 0.2s;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      text-decoration: none;
-    }
-    .btn-primary:hover {
-      background: linear-gradient(135deg, #e4ff8c, #b6ff3d);
-      transform: translateY(-2px);
-      box-shadow: 0 12px 42px rgba(163, 255, 18, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    }
-
-    .btn-ghost {
-      background: rgba(255, 255, 255, 0.05);
-      color: #e5e5e5;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      border-radius: 9999px;
-      padding: 12px 22px;
-      font-family: 'Outfit', sans-serif;
-      font-weight: 600;
-      -webkit-backdrop-filter: blur(12px);
-      backdrop-filter: blur(12px);
-      transition: border-color 0.2s, color 0.2s, background-color 0.2s, transform 0.2s;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    .btn-ghost:hover {
-      border-color: #a3ff12;
-      color: #a3ff12;
-      background: rgba(163, 255, 18, 0.08);
-      transform: translateY(-1px);
-    }
-
-    .nav-link {
-      padding: 8px 16px;
-      border-radius: 9999px;
-      font-size: 14px;
-      font-weight: 600;
-      color: #c9cfbf;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-    }
-    .nav-link:hover {
-      color: #fff;
-      background: rgba(255, 255, 255, 0.08);
-    }
-    .nav-link.active {
-      color: #a3ff12;
-      background: rgba(163, 255, 18, 0.12);
-      border: 1px solid rgba(163, 255, 18, 0.25);
-    }
-
-    .tab-link {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      font-size: 11px;
-      color: #8c9384;
-      padding: 8px 0;
-      flex: 1;
-      font-weight: 600;
-      transition: color 0.2s;
-    }
-    .tab-link.active { color: #a3ff12; }
-
-    #tabbar {
-      background: rgba(10, 13, 8, 0.88);
-      -webkit-backdrop-filter: blur(18px);
-      backdrop-filter: blur(18px);
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .lime-t { color: #a3ff12; }
-    .glass { background: linear-gradient(135deg, rgba(255,255,255,.13), rgba(255,255,255,.04)); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%); border: 1px solid rgba(255,255,255,.16); box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 24px 60px rgba(0,0,0,.4); }
-    .glass-light { background: rgba(255,255,255,.55); -webkit-backdrop-filter: blur(18px) saturate(170%); backdrop-filter: blur(18px) saturate(170%); border: 1px solid rgba(255,255,255,.95); box-shadow: 0 14px 44px rgba(110,170,10,.16), inset 0 1px 0 #fff; }
-
-    .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
-    details > summary { list-style: none; cursor: pointer; }
-    details > summary::-webkit-details-marker { display: none; }
-    details[open] .chev { transform: rotate(180deg); }
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-thumb { background: #a3ff12; border-radius: 4px; }
-    @media (max-width: 767px) { body { padding-bottom: 68px; } }
-
-    /* ============ INNER PAGE CONTAINER ============ */
-    .zen-page-wrap {
-      max-width: 80rem;
-      margin: 0 auto;
-      padding: 64px 20px 120px;
-      position: relative;
-      z-index: 1;
-    }
-    @media (min-width: 640px) {
-      .zen-page-wrap { padding: 80px 32px 140px; }
-    }
-
-    /* ============ ZEN HERO (HOME) ============ */
-    .zen-hero {
-      position: relative;
-      isolation: isolate;
-      min-height: 100vh;
-      overflow: hidden;
-      background: #080a07;
-      color: #fff;
-      padding: 120px 20px 48px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 88%, rgba(0,0,0,0.85) 95%, rgba(0,0,0,0.4) 100%);
-      mask-image: linear-gradient(180deg, #000 0%, #000 88%, rgba(0,0,0,0.85) 95%, rgba(0,0,0,0.4) 100%);
-    }
-    .zen-hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: -3;
-      background: 
-        radial-gradient(55% 45% at 50% 0%, rgba(163,255,18,.14), transparent 70%),
-        radial-gradient(40% 55% at 0% 65%, rgba(80,150,20,.38), transparent 70%),
-        radial-gradient(40% 55% at 100% 55%, rgba(80,150,20,.38), transparent 70%),
-        radial-gradient(65% 40% at 50% 100%, rgba(163,255,18,.18), transparent 75%);
-    }
-    .zen-hero::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: -2;
-      background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
-      background-size: 64px 64px;
-      -webkit-mask-image: radial-gradient(ellipse at center, #000 25%, transparent 75%);
-      mask-image: radial-gradient(ellipse at center, #000 25%, transparent 75%);
-    }
-    .zen-ribbon { position: absolute; z-index: -1; width: 42vw; max-width: 640px; height: 130%; border-radius: 48% 52% 55% 45% / 38% 40% 60% 62%; translate: calc(var(--mx, 0) * 40px) calc(var(--my, 0) * 30px); transition: translate .4s ease-out; }
-    .zen-ribbon.l { left: -26vw; top: -12%; background: linear-gradient(115deg, rgba(214,255,99,.7) 0%, rgba(74,128,16,.55) 14%, rgba(12,20,8,.96) 38%, #060905 100%); box-shadow: inset 8px 0 30px rgba(214,255,99,.55), inset -30px 0 80px rgba(0,0,0,.8), 0 0 120px rgba(120,200,20,.2); animation: ribL 14s ease-in-out infinite; }
-    .zen-ribbon.r { right: -26vw; top: -4%; background: linear-gradient(245deg, rgba(214,255,99,.7) 0%, rgba(74,128,16,.55) 14%, rgba(12,20,8,.96) 38%, #060905 100%); box-shadow: inset -8px 0 30px rgba(214,255,99,.55), inset 30px 0 80px rgba(0,0,0,.8), 0 0 120px rgba(120,200,20,.2); animation: ribR 16s ease-in-out infinite; }
-    @keyframes ribL { 0%,100% { transform: rotate(-16deg); } 50% { transform: rotate(-9deg) translateY(30px); } }
-    @keyframes ribR { 0%,100% { transform: rotate(14deg); } 50% { transform: rotate(7deg) translateY(-24px); } }
-    .zen-orb { position: absolute; z-index: -1; border-radius: 50%; filter: blur(90px); background: #a3ff12; opacity: .16; animation: orb 10s ease-in-out infinite; }
-    @keyframes orb { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(40px,-30px) scale(1.15); } }
-    @media (max-width: 767px) { .zen-ribbon { width: 70vw; } .zen-ribbon.l { left: -52vw; } .zen-ribbon.r { right: -52vw; } }
-
-    .zen-tile { width: clamp(92px, 13vw, 132px); aspect-ratio: 1; border-radius: 22px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; transition: transform .35s cubic-bezier(.2,.8,.2,1); animation: tileFloat 6s ease-in-out infinite; }
-    .zen-tile::before { content: ''; position: absolute; inset: 0; background: linear-gradient(160deg, rgba(163,255,18,.6), rgba(20,40,8,.25) 60%, transparent); }
-    .zen-tile::after { content: ''; position: absolute; width: 150%; height: 32%; background: #080a07; transform: rotate(-38deg); left: -25%; top: 46%; opacity: .85; }
-    .zen-tile svg { position: relative; z-index: 1; width: 40%; height: 40%; color: #eaffc2; stroke-width: 1.6; transform: translateY(-14%); }
-    .zen-tile:hover { transform: translateY(-8px) rotate(-3deg); }
-    @keyframes tileFloat { 0%,100% { translate: 0 0; } 50% { translate: 0 -8px; } }
-
-    .zen-title { font-weight: 800; text-transform: uppercase; letter-spacing: -.035em; line-height: .95; font-size: clamp(2.6rem, 8.4vw, 6rem); }
-    .zen-sub { max-width: 640px; color: rgba(255,255,255,.7); font-size: clamp(1rem, 1.6vw, 1.2rem); line-height: 1.6; }
-    .zen-cta { display: inline-flex; align-items: center; gap: 28px; padding: 14px 14px 14px 30px; border-radius: 999px; background: linear-gradient(135deg, #e3ff85, #a3ff12); color: #0c0f0a; font-weight: 700; box-shadow: 0 10px 40px rgba(163,255,18,.4), inset 0 1px 0 rgba(255,255,255,.6); transition: transform .3s, box-shadow .3s; }
-    .zen-cta:hover { transform: translateY(-2px); box-shadow: 0 14px 56px rgba(163,255,18,.55), inset 0 1px 0 rgba(255,255,255,.6); }
-    .zen-cta .arrow { width: 36px; height: 36px; border-radius: 50%; background: #0c0f0a; color: #a3ff12; display: flex; align-items: center; justify-content: center; transition: transform .3s; }
-    .zen-cta:hover .arrow { transform: translate(2px, -2px) rotate(8deg); }
-    .zen-cta-glass { background: linear-gradient(135deg, rgba(255,255,255,.13), rgba(255,255,255,.04)); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 12px 40px rgba(0,0,0,.35); }
-    .zen-cta-glass .arrow { background: #a3ff12; color: #0c0f0a; }
-    .zen-cta-glass:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.3), 0 14px 48px rgba(163,255,18,.25); }
-    .zen-track { display: flex; gap: 8px; padding: 6px; border-radius: 999px; width: min(100%, 460px); }
-    .zen-track input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #fff; padding: 10px 18px; font-size: 15px; }
-    .zen-track input::placeholder { color: rgba(255,255,255,.5); }
-    .zen-track button { border-radius: 999px; background: #a3ff12; color: #0c0f0a; font-weight: 700; padding: 10px 24px; transition: .2s; }
-    .zen-track button:hover { background: #c4ff5e; }
-    .zen-stat {
-      padding: 22px 24px;
-      border-radius: 24px;
-      text-align: left;
-      background: rgba(16, 22, 14, 0.72) !important;
-      -webkit-backdrop-filter: blur(18px) saturate(150%);
-      backdrop-filter: blur(18px) saturate(150%);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-      transition: border-color 0.25s cubic-bezier(.2,.8,.2,1), transform 0.25s cubic-bezier(.2,.8,.2,1), box-shadow 0.25s;
-    }
-    .zen-stat:hover {
-      border-color: rgba(163, 255, 18, 0.35);
-      transform: translateY(-2px);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 25px rgba(163, 255, 18, 0.15);
-    }
-    .zen-stat-v {
-      font-size: clamp(2.4rem, 3.6vw, 3rem);
-      font-weight: 800;
-      line-height: 1;
-      letter-spacing: -.035em;
-      color: #ffffff;
-      font-family: 'Outfit', sans-serif;
-    }
-    .zen-stat-l {
-      margin-top: 10px;
-      font-size: 0.75rem;
-      color: #a3ff12;
-      font-weight: 600;
-      font-family: monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-    @keyframes zrise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
-    .zen-rise { opacity: 0; animation: zrise .8s cubic-bezier(.2,.8,.2,1) forwards; animation-delay: var(--d, 0s); }
-
-    /* ============ LIGHT SERVICES SECTION (HOME) ============ */
-    .zen-light {
-      position: relative;
-      overflow: visible;
-      color: #0c0f0a;
-      background-color: #fcfff3;
-      background-image: linear-gradient(rgba(163,255,18,.17) 1px, transparent 1px), linear-gradient(90deg, rgba(163,255,18,.17) 1px, transparent 1px);
-      background-size: 64px 64px;
-      border-radius: 44px 44px 0 0;
-      box-shadow: 0 -24px 70px rgba(0, 0, 0, 0.6), 0 -1px 0 rgba(163, 255, 18, 0.35);
-      margin-top: -100vh;
-      z-index: 20;
-    }
-    .zen-blob { position: absolute; border-radius: 50%; filter: blur(80px); background: #a3ff12; opacity: .38; pointer-events: none; }
-    .zen-wrap { max-width: 80rem; margin: 0 auto; padding: 96px 16px; }
-    .zen-h2 { font-weight: 800; font-size: clamp(2.2rem, 5vw, 3.6rem); letter-spacing: -.03em; line-height: 1.02; color: #0c0f0a; }
-    .zen-lead { color: #5f6556; font-size: 1.15rem; max-width: 560px; line-height: 1.6; margin-top: 16px; }
-    .zen-lime-card { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 180px; padding: 32px; border-radius: 32px; background: #a3ff12; color: #0c0f0a; transition: transform .3s cubic-bezier(.2,.8,.2,1), box-shadow .3s; }
-    .zen-lime-card:hover { transform: translateY(-6px); box-shadow: 0 22px 50px rgba(120,200,10,.35); }
-    .zen-lime-card h3 { font-size: 1.75rem; font-weight: 700; line-height: 1.1; letter-spacing: -.02em; }
-    .zen-lime-card p { margin-top: 8px; font-size: .95rem; color: rgba(12,15,10,.7); }
-    .zen-icon-box { width: 88px; height: 88px; border-radius: 22px; background: #fff; border: 2px solid #0c0f0a; box-shadow: 4px 4px 0 #0c0f0a; display: flex; align-items: center; justify-content: center; transform: rotate(6deg); transition: transform .3s; }
-    .zen-lime-card:hover .zen-icon-box { transform: rotate(-3deg) scale(1.05); }
-    .zen-icon-box svg { width: 44px; height: 44px; stroke-width: 1.8; color: #0c0f0a; }
-    .zen-arrow svg { width: 26px; height: 26px; stroke-width: 2.2; transition: transform .3s; }
-    .zen-lime-card:hover .zen-arrow svg { transform: translate(4px, -4px); }
-    .zen-glass-card { display: flex; flex-direction: column; padding: 30px; border-radius: 28px; transition: transform .3s cubic-bezier(.2,.8,.2,1), box-shadow .3s; }
-    .zen-glass-card:hover { transform: translateY(-6px); box-shadow: 0 22px 54px rgba(110,170,10,.28), inset 0 1px 0 #fff; }
-    .zen-glass-card h3 { font-size: 1.4rem; font-weight: 700; letter-spacing: -.02em; margin-top: 18px; color: #0c0f0a; }
-    .zen-glass-card p { margin-top: 8px; flex: 1; color: #5f6556; line-height: 1.55; }
-    .zen-feat-icon { width: 52px; height: 52px; border-radius: 16px; background: #a3ff12; display: flex; align-items: center; justify-content: center; }
-    .zen-feat-icon svg { width: 24px; height: 24px; color: #0c0f0a; }
-    .zen-link { margin-top: 22px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: #0c0f0a; }
-    .zen-glass-card:hover .zen-link svg { transform: translate(3px, -3px); }
-    .zen-link svg { transition: transform .25s; }
-    .zen-glass-lime { background: linear-gradient(135deg, #d6ff63, #a3ff12); border: 1px solid rgba(255,255,255,.6); box-shadow: 0 14px 44px rgba(120,200,10,.3), inset 0 1px 0 rgba(255,255,255,.7); }
-    .zen-glass-lime h3 { margin-top: 0; font-size: 1.8rem; }
-    .zen-glass-lime p { color: rgba(12,15,10,.72); }
-    .zen-dark-panel { background: #0b0e09; border-radius: 36px; padding: 40px; box-shadow: 0 30px 80px rgba(12,15,10,.25); }
-    .zen-pill { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 999px; background: #a3ff12; color: #0c0f0a; font-weight: 700; transition: .2s; }
-    .zen-pill:hover { background: #c4ff5e; }
-    @media (max-width: 640px) {
-      .zen-dark-panel { padding: 22px; border-radius: 28px; }
-      .zen-wrap { padding: 64px 16px; }
-      .zen-lime-card { padding: 24px; }
-      .zen-icon-box { width: 68px; height: 68px; }
-      .zen-light { border-radius: 28px 28px 0 0; margin-top: -24px; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .zen-ribbon, .zen-orb, .zen-tile { animation: none; }
-      .zen-rise { animation: none; opacity: 1; }
-      .capability-track { animation: none !important; }
-      .about-word { opacity: 1 !important; transform: none !important; color: #ffffff !important; }
-      .about-word.highlight { color: #a3ff12 !important; }
-    }
-
-    /* ============ ZEN CAPABILITY PILL WALL & BLUR SCROLL TRANSITION ============ */
-    .about-services-stack { position: relative; isolation: isolate; background: #080a07; }
-    .about-scroll-track {
-      min-height: calc(var(--about-height, 100vh) + 160vh);
-      background: #080a07;
-      position: relative;
-    }
-    .about-panel {
-      position: sticky;
-      top: 0;
-      width: 100%;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      background: #080a07;
-      color: #fff;
-      overflow: hidden;
-      will-change: transform, opacity, filter;
-      transform-origin: center center;
-      isolation: isolate;
-    }
-    .about-panel::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: -2;
-      background: 
-        radial-gradient(65% 42% at 50% 0%, rgba(163,255,18,.16), transparent 72%),
-        radial-gradient(45% 55% at 92% 45%, rgba(80,150,20,.26), transparent 70%),
-        radial-gradient(45% 55% at 8% 65%, rgba(80,150,20,.26), transparent 70%);
-      pointer-events: none;
-    }
-    .about-panel::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: -1;
-      background-image: 
-        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
-      background-size: 64px 64px;
-      -webkit-mask-image: radial-gradient(ellipse at center, #000 35%, transparent 85%);
-      mask-image: radial-gradient(ellipse at center, #000 35%, transparent 85%);
-      pointer-events: none;
-    }
-    .about-statement-wrap { max-width: 1320px; margin: 0 auto; padding: 52px 24px 28px; width: 100%; }
-    .about-eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-family: monospace;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-      color: #a3ff12;
-      margin-bottom: 22px;
-      background: rgba(163, 255, 18, 0.08);
-      border: 1px solid rgba(163, 255, 18, 0.28);
-      padding: 6px 16px;
-      border-radius: 9999px;
-      -webkit-backdrop-filter: blur(12px);
-      backdrop-filter: blur(12px);
-      box-shadow: 0 0 20px rgba(163, 255, 18, 0.12);
-    }
-    .about-eyebrow .pulse-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #a3ff12;
-      box-shadow: 0 0 10px #a3ff12;
-      animation: dotPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-    @keyframes dotPulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.45; transform: scale(0.8); }
-    }
-    .about-statement {
-      font-family: 'Outfit', sans-serif;
-      font-size: clamp(2.75rem, 5.8vw, 4.6rem);
-      font-weight: 800;
-      line-height: 1.18;
-      letter-spacing: -0.03em;
-      color: #fff;
-      margin: 0;
-    }
-    .about-word {
-      display: inline-block;
-      opacity: 0.32;
-      color: #a1a1aa;
-      filter: blur(4px);
-      transform: translateY(4px) scale(0.98);
-      transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-                  filter 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-                  transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-                  color 0.3s ease,
-                  text-shadow 0.35s ease;
-      will-change: opacity, filter, transform;
-    }
-    .about-word.active {
-      opacity: 1;
-      color: #ffffff;
-      filter: blur(0px);
-      transform: translateY(0) scale(1);
-      text-shadow: 0 0 28px rgba(255, 255, 255, 0.35);
-    }
-    .about-word.highlight {
-      color: #a3ff12;
-      opacity: 1;
-      filter: blur(0px);
-      transform: translateY(0) scale(1.02);
-      text-shadow: 0 0 36px rgba(163, 255, 18, 0.7);
-    }
-
-    .capabilities-wrap { position: relative; width: 100%; padding: 16px 0 64px; overflow: hidden; }
-    .capability-lanes {
-      display: flex;
-      flex-direction: column;
-      gap: 22px;
-      position: relative;
-      -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 6% 94%, transparent 100%);
-      mask-image: linear-gradient(90deg, transparent 0%, #000 6% 94%, transparent 100%);
-      will-change: transform;
-    }
-    .capability-track {
-      display: flex;
-      width: max-content;
-      animation: capability-drift var(--lane-duration, 80s) linear infinite;
-      animation-delay: var(--lane-delay, 0s);
-      will-change: transform;
-    }
-    .capability-track.reverse { animation-name: capability-drift-rev; }
-    .capability-group { display: flex; align-items: center; gap: 20px; min-width: 100vw; padding-right: 20px; flex-shrink: 0; }
-    .capability-badge {
-      background: #a3ff12;
-      height: 72px;
-      color: #0c0f0a;
-      border-radius: 9999px;
-      flex-shrink: 0;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      text-decoration: none;
-      font-family: 'Outfit', sans-serif;
-      transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease;
-      user-select: none;
-      box-shadow: 0 8px 30px rgba(163, 255, 18, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-    }
-    .capability-label { white-space: nowrap; padding: 0 34px; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; cursor: pointer; }
-    .capability-label:hover {
-      transform: translateY(-3px) scale(1.035);
-      box-shadow: 0 14px 44px rgba(163, 255, 18, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-    }
-    .capability-label svg { width: 26px; height: 26px; stroke-width: 2.5; color: #0c0f0a; flex-shrink: 0; }
-    .capability-empty { background: rgba(163, 255, 18, 0.12); border: 1px solid rgba(163, 255, 18, 0.2); pointer-events: none; }
-
-    @keyframes capability-drift { 0% { transform: translate3d(-50%, 0, 0); } 100% { transform: translate3d(0, 0, 0); } }
-    @keyframes capability-drift-rev { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-50%, 0, 0); } }
-
-    @media (max-width: 768px) {
-      .about-scroll-track { min-height: calc(var(--about-height, 100vh) + 60vh); }
-      .about-statement-wrap { padding: 50px 18px 24px; }
-      .about-statement { font-size: clamp(2rem, 6.2vw, 2.75rem); line-height: 1.22; }
-      .capability-badge { height: 52px; gap: 8px; }
-      .capability-label { padding: 0 20px; font-size: 16px; }
-      .capability-label svg { width: 20px; height: 20px; }
-      .capability-group { gap: 12px; padding-right: 12px; }
-      .capability-lanes { gap: 14px; }
-      .capabilities-wrap { padding-bottom: 36px; }
-    }
-
-    /* Frosted Glass Depth Blur Transition Curtain with Radiant Lime Crest */
-    .zen-blur-curtain {
-      display: none !important;
-    }
-    .zen-blur-crest {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, transparent 0%, #a3ff12 20%, #d6ff63 50%, #a3ff12 80%, transparent 100%);
-      box-shadow: 0 0 24px #a3ff12, 0 0 48px rgba(163, 255, 18, 0.6);
-      z-index: 30;
-      pointer-events: none;
-      border-radius: 44px 44px 0 0;
-    }
-    .zen-blur-glow {
-      position: absolute;
-      top: -45px;
-      left: 5%;
-      right: 5%;
-      height: 90px;
-      background: radial-gradient(ellipse at center, rgba(163, 255, 18, 0.45) 0%, transparent 70%);
-      filter: blur(24px);
-      pointer-events: none;
-      z-index: 29;
-    }
-
-    /* ============ MODERN FEATURE ADDITIONS ============ */
-    /* Image dropzone & attachment preview */
-    .file-dropzone {
-      border: 2px dashed rgba(255, 255, 255, 0.18);
-      background: rgba(12, 16, 10, 0.6);
-      border-radius: 18px;
-      padding: 24px;
-      text-align: center;
-      transition: all 0.25s ease;
-      cursor: pointer;
-    }
-    .file-dropzone:hover, .file-dropzone.dragover {
-      border-color: #a3ff12;
-      background: rgba(163, 255, 18, 0.08);
-      box-shadow: 0 0 24px rgba(163, 255, 18, 0.15);
-    }
-
-    /* Interactive Star Rating */
-    .star-btn {
-      color: rgba(255, 255, 255, 0.2);
-      transition: color 0.15s, transform 0.15s;
-    }
-    .star-btn:hover, .star-btn.active {
-      color: #ffd700;
-      transform: scale(1.15);
-      filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5));
-    }
-
-    /* Campus building status grid */
-    .building-card {
-      background: rgba(16, 22, 14, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 18px;
-      padding: 16px;
-      transition: all 0.25s ease;
-      cursor: pointer;
-    }
-    .building-card:hover {
-      border-color: rgba(163, 255, 18, 0.4);
-      background: rgba(20, 28, 18, 0.85);
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-    }
-    .building-card.active {
-      border-color: #a3ff12;
-      background: rgba(163, 255, 18, 0.12);
-      box-shadow: 0 0 20px rgba(163, 255, 18, 0.2);
-    }
-
-    /* SLA Indicator Pill */
-    .sla-pill {
-      font-size: 11px;
-      font-family: monospace;
-      padding: 3px 10px;
-      border-radius: 9999px;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-weight: 700;
-    }
-    .sla-normal { background: rgba(163, 255, 18, 0.15); color: #a3ff12; border: 1px solid rgba(163, 255, 18, 0.3); }
-    .sla-warning { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); animation: pulse 2s infinite; }
-    .sla-breached { background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); animation: pulse 1.5s infinite; }
-  </style>
+  <!-- Vendor Libraries: Pinned Lucide Icons & DOMPurify Sanitizer -->
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.2.3/purify.min.js"></script>
 </head>
+
 <body class="zen font-sans text-gray-100 antialiased">
 
   <header class="sticky top-0 z-40 bg-[#080a07]/80 backdrop-blur-xl border-b border-white/10 transition-colors">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between gap-4 py-3">
-      <a href="#/" class="flex items-center gap-3 group transition-transform hover:scale-[1.02]" aria-label="Unidesk Home">
-        <img src="logo-white.svg" alt="Unidesk" class="h-9 sm:h-10 w-auto object-contain drop-shadow-[0_2px_12px_rgba(163,255,18,0.25)]">
+      <a href="#/" class="flex items-center gap-3 group transition-transform hover:scale-[1.02]"
+        aria-label="Unidesk Home">
+        <img src="logo-white.svg" alt="Unidesk"
+          class="h-9 sm:h-10 w-auto object-contain drop-shadow-[0_2px_12px_rgba(163,255,18,0.25)]">
       </a>
       <nav id="nav" class="hidden md:flex items-center gap-1.5"></nav>
       <div class="flex items-center gap-2.5">
-        <span class="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-white/5 border border-white/10 text-gray-400">
-          <kbd class="text-[#a3ff12] font-semibold">/</kbd> search <span class="text-gray-600">·</span> <kbd class="text-[#a3ff12] font-semibold">N</kbd> report
+        <span
+          class="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-white/5 border border-white/10 text-gray-400">
+          <kbd class="text-[#a3ff12] font-semibold">/</kbd> search <span class="text-gray-400">·</span> <kbd
+            class="text-[#a3ff12] font-semibold">N</kbd> report
         </span>
-        <a href="#/report" class="btn-primary !py-2 !px-4 text-sm"><i data-lucide="plus" class="w-4 h-4 stroke-[2.5]"></i><span>New Request</span></a>
+        <a href="#/report" class="btn-primary !py-2 !px-4 text-sm"><i data-lucide="plus"
+            class="w-4 h-4 stroke-[2.5]"></i><span>New Request</span></a>
       </div>
     </div>
   </header>
@@ -634,7 +73,8 @@
         <a href="#/" class="inline-block mb-3">
           <img src="logo-white.svg" alt="Unidesk" class="h-8 w-auto object-contain">
         </a>
-        <p class="text-gray-400 max-w-sm leading-relaxed">One place to report, track and resolve campus issues with clarity, speed and impact.</p>
+        <p class="text-gray-400 max-w-sm leading-relaxed">One place to report, track and resolve campus issues with
+          clarity, speed and impact.</p>
       </div>
       <div class="flex flex-col gap-2">
         <div class="font-bold text-xs uppercase tracking-wider mb-1 text-[#a3ff12] font-mono">// Navigation</div>
@@ -645,25 +85,42 @@
       <div class="flex flex-col gap-2">
         <div class="font-bold text-xs uppercase tracking-wider mb-1 text-[#a3ff12] font-mono">// Management</div>
         <a class="hover:text-[#a3ff12] transition-colors" href="#/staff">Staff Portal</a>
-        <button class="text-left hover:text-[#a3ff12] transition-colors" onclick="App.addDemoData()">+ Add demo tickets</button>
-        <button class="text-left hover:text-[#a3ff12] transition-colors" onclick="App.resetData()">Reset demo data</button>
+        <button type="button" class="text-left hover:text-[#a3ff12] transition-colors" data-action="add-demo">+ Add demo tickets</button>
+        <button type="button" class="text-left hover:text-[#a3ff12] transition-colors" data-action="reset-demo">Reset demo data</button>
       </div>
     </div>
   </footer>
 
-  <nav id="tabbar" class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#080a07]/90 backdrop-blur-xl border-t border-white/10 flex"></nav>
+  <nav id="tabbar"
+    class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#080a07]/90 backdrop-blur-xl border-t border-white/10 flex">
+  </nav>
 
-  <div id="toast" class="fixed top-20 right-4 z-50 opacity-0 pointer-events-none -translate-y-2 transition-all duration-300 bg-[#0e140d]/90 backdrop-blur-xl border border-[#a3ff12]/40 rounded-2xl px-5 py-3 text-sm font-semibold shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex items-center gap-2.5 text-white">
+  <div id="toast"
+    role="status"
+    aria-live="polite"
+    class="fixed top-20 right-4 z-50 opacity-0 pointer-events-none -translate-y-2 transition-all duration-300 bg-[#0e140d]/90 backdrop-blur-xl border border-[#a3ff12]/40 rounded-2xl px-5 py-3 text-sm font-semibold shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex items-center gap-2.5 text-white">
     <i data-lucide="check-circle-2" class="w-4 h-4 text-[#a3ff12]"></i><span id="toast-msg"></span>
   </div>
 
-  <!-- Image Lightbox Modal -->
-  <div id="img-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4 cursor-pointer" onclick="this.classList.add('hidden'); this.classList.remove('flex')">
-    <div class="relative max-w-4xl max-h-[90vh] p-2" onclick="event.stopPropagation()">
-      <button class="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-[#0c0f0a] border border-white/20 text-white flex items-center justify-center hover:text-[#a3ff12] shadow-lg" onclick="document.getElementById('img-modal').classList.add('hidden'); document.getElementById('img-modal').classList.remove('flex')">
+  <!-- Image Lightbox Modal with Keyboard Focus Trapping -->
+  <div id="img-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Enlarged attachment preview"
+    tabindex="-1"
+    class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4 cursor-pointer"
+    data-action="close-modal">
+    <div class="relative max-w-4xl max-h-[90vh] p-2" data-modal-content="true">
+      <button
+        id="img-modal-close"
+        type="button"
+        aria-label="Close image preview"
+        data-action="close-modal"
+        class="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-[#0c0f0a] border border-white/20 text-white flex items-center justify-center hover:text-[#a3ff12] focus:outline-none focus:ring-2 focus:ring-[#a3ff12] shadow-lg">
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
-      <img id="img-modal-src" src="" alt="Enlarged attachment" class="rounded-2xl max-w-full max-h-[85vh] object-contain border border-white/20 shadow-2xl">
+      <img id="img-modal-src" src="" alt="Enlarged attachment"
+        class="rounded-2xl max-w-full max-h-[85vh] object-contain border border-white/20 shadow-2xl">
     </div>
   </div>
 
@@ -672,4 +129,5 @@
 
   <script src="app.js"></script>
 </body>
+
 </html>
