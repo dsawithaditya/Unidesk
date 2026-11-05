@@ -1180,6 +1180,77 @@ html {
       animation: pulse 1.5s infinite;
     }
 
+    /* ============ DARK MODE OVERRIDES FOR SERVICES SECTION (.zen-light) ============ */
+    body:not(.light-mode) .zen-light {
+      background-color: #0a0e08;
+      color: #f3f5ed;
+      background-image:
+        linear-gradient(rgba(163, 255, 18, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(163, 255, 18, 0.05) 1px, transparent 1px);
+      box-shadow: 0 -24px 70px rgba(0, 0, 0, 0.85), 0 -1px 0 rgba(163, 255, 18, 0.35);
+    }
+
+    body:not(.light-mode) .zen-blob {
+      opacity: 0.14;
+    }
+
+    body:not(.light-mode) .zen-h2 {
+      color: #ffffff;
+    }
+
+    body:not(.light-mode) .zen-lead {
+      color: #9ca3af;
+    }
+
+    body:not(.light-mode) .zen-lime-card {
+      background: linear-gradient(135deg, rgba(20, 30, 16, 0.92), rgba(12, 18, 10, 0.96));
+      border: 1px solid rgba(163, 255, 18, 0.25);
+      color: #ffffff;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    body:not(.light-mode) .zen-lime-card:hover {
+      border-color: rgba(163, 255, 18, 0.55);
+      box-shadow: 0 22px 50px rgba(163, 255, 18, 0.18);
+    }
+
+    body:not(.light-mode) .zen-lime-card p {
+      color: #9ca3af;
+    }
+
+    body:not(.light-mode) .zen-icon-box {
+      background: #a3ff12;
+      border-color: #0c0f0a;
+      box-shadow: 4px 4px 0 rgba(163, 255, 18, 0.25);
+    }
+
+    body:not(.light-mode) .zen-arrow svg {
+      color: #a3ff12;
+    }
+
+    body:not(.light-mode) .zen-glass-card.glass-light {
+      background: rgba(16, 22, 14, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    body:not(.light-mode) .zen-glass-card.glass-light:hover {
+      border-color: rgba(163, 255, 18, 0.4);
+      box-shadow: 0 22px 54px rgba(163, 255, 18, 0.15);
+    }
+
+    body:not(.light-mode) .zen-glass-card.glass-light h3 {
+      color: #ffffff;
+    }
+
+    body:not(.light-mode) .zen-glass-card.glass-light p {
+      color: #9ca3af;
+    }
+
+    body:not(.light-mode) .zen-glass-card.glass-light .zen-link {
+      color: #a3ff12;
+    }
+
     /* ============ DYNAMIC LIGHT MODE THEME ============ */
     body.light-mode {
       background-color: #f7faf4;
@@ -1533,4 +1604,73 @@ html {
       background: rgba(132, 204, 22, 0.15) !important;
       color: #111813 !important;
       border-color: rgba(101, 163, 13, 0.35) !important;
+    }
+
+    body.light-mode .about-eyebrow {
+      color: #3f6212 !important;
+      background: rgba(132, 204, 22, 0.16) !important;
+      border-color: rgba(101, 163, 13, 0.35) !important;
+    }
+
+    body.light-mode .zen-light {
+      box-shadow: 0 -16px 50px rgba(0, 0, 0, 0.08), 0 -1px 0 rgba(101, 163, 13, 0.25);
+    }
+
+    /* Emergency directory & dark surface overrides in light mode */
+    body.light-mode .bg-red-950\/25 {
+      background-color: rgba(254, 226, 226, 0.65) !important;
+      border-color: rgba(239, 68, 68, 0.3) !important;
+      box-shadow: 0 12px 32px rgba(239, 68, 68, 0.08) !important;
+    }
+
+    body.light-mode .bg-\[\#0e130c\]\/80 {
+      background-color: #ffffff !important;
+      border-color: rgba(239, 68, 68, 0.22) !important;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+    }
+
+    body.light-mode .bg-\[\#162012\]\/90,
+    body.light-mode .bg-\[\#152011\]\/80 {
+      background-color: rgba(240, 253, 244, 0.95) !important;
+      border-color: rgba(101, 163, 13, 0.35) !important;
+      color: #0c0f0a !important;
+    }
+
+    /* Semantic badge & metric contrast in light mode */
+    body.light-mode .text-amber-300,
+    body.light-mode .text-amber-400 {
+      color: #b45309 !important;
+    }
+
+    body.light-mode .text-emerald-300,
+    body.light-mode .text-emerald-400 {
+      color: #047857 !important;
+    }
+
+    body.light-mode .text-orange-300,
+    body.light-mode .text-orange-400 {
+      color: #c2410c !important;
+    }
+
+    body.light-mode .text-red-300,
+    body.light-mode .text-red-400 {
+      color: #b91c1c !important;
+    }
+
+    body.light-mode .sla-normal {
+      color: #3f6212 !important;
+      background: rgba(132, 204, 22, 0.16) !important;
+      border-color: rgba(101, 163, 13, 0.35) !important;
+    }
+
+    body.light-mode .sla-warning {
+      color: #b45309 !important;
+      background: rgba(245, 158, 11, 0.16) !important;
+      border-color: rgba(217, 119, 6, 0.35) !important;
+    }
+
+    body.light-mode .sla-breached {
+      color: #b91c1c !important;
+      background: rgba(239, 68, 68, 0.15) !important;
+      border-color: rgba(220, 38, 38, 0.35) !important;
     }

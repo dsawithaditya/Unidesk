@@ -1,5 +1,5 @@
-/* Unidesk Campus Helpdesk - Offline Service Worker (Cache-First + Stale-While-Revalidate) */
-const CACHE_NAME = 'unidesk-v1.1';
+/* Unidesk Campus Helpdesk - Offline Service Worker (Network-First + Offline Cache Fallback) */
+const CACHE_NAME = 'unidesk-v4.0';
 const PRECACHE_ASSETS = [
   './',
   './index.html',
@@ -16,8 +16,16 @@ const PRECACHE_ASSETS = [
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(PRECACHE_ASSETS);
+    caches.open(CACHE_NAME).then(async cache => {
+      await Promise.all(
+        PRECACHE_ASSETS.map(url =>
+          fetch(new Request(url, { cache: 'reload' }))
+            .then(res => {
+              if (res && res.ok) return cache.put(url, res);
+            })
+            .catch(() => {})
+        )
+      );
     }).then(() => self.skipWaiting())
   );
 });
@@ -28,7 +36,12 @@ self.addEventListener('activate', event => {
       return Promise.all(
         keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
       );
-    }).then(() => self.clients.claim())
+    }).then(() => self.clients.claim()).then(async () => {
+      const clients = await self.clients.matchAll({ type: 'window' });
+      for (const client of clients) {
+        client.navigate(client.url);
+      }
+    })
   );
 });
 
@@ -41,21 +54,20 @@ self.addEventListener('fetch', event => {
   // Handle chrome extension or unsupported schemes
   if (!url.protocol.startsWith('http')) return;
 
-  // Static Assets & Same-Origin: Cache-First with Network Fallback
+  // Static Assets & Same-Origin: Network-First with Offline Cache Fallback
   if (url.origin === self.location.origin) {
     event.respondWith(
-      caches.match(req).then(cached => {
-        if (cached) return cached;
-        return fetch(req).then(networkRes => {
-          if (networkRes && networkRes.status === 200) {
-            const resClone = networkRes.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(req, resClone));
-          }
-          return networkRes;
-        }).catch(() => {
-          // If navigation fails, return cached index.html
+      fetch(req).then(networkRes => {
+        if (networkRes && networkRes.status === 200) {
+          const resClone = networkRes.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, resClone));
+        }
+        return networkRes;
+      }).catch(() => {
+        return caches.match(req, { ignoreSearch: true }).then(cached => {
+          if (cached) return cached;
           if (req.mode === 'navigate') {
-            return caches.match('./index.html');
+            return caches.match('./index.html', { ignoreSearch: true });
           }
         });
       })
