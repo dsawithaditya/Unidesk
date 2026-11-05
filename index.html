@@ -49,7 +49,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between gap-4 py-3">
       <a href="#/" class="flex items-center gap-3 group transition-transform hover:scale-[1.02]"
         aria-label="Unidesk Home">
-        <img src="logo-white.svg" alt="Unidesk"
+        <img id="header-logo" src="logo-white.svg" alt="Unidesk"
           class="h-9 sm:h-10 w-auto object-contain drop-shadow-[0_2px_12px_rgba(163,255,18,0.25)]">
       </a>
       <nav id="nav" class="hidden md:flex items-center gap-1.5"></nav>
@@ -59,6 +59,11 @@
           <kbd class="text-[#a3ff12] font-semibold">/</kbd> search <span class="text-gray-400">·</span> <kbd
             class="text-[#a3ff12] font-semibold">N</kbd> report
         </span>
+        <button id="theme-toggle-btn" type="button" data-action="toggle-theme"
+          class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-300 hover:text-[#a3ff12] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a3ff12]"
+          title="Toggle Light / Dark mode" aria-label="Toggle theme mode">
+          <i id="theme-icon" data-lucide="sun" class="w-4 h-4 text-[#a3ff12]"></i>
+        </button>
         <a href="#/report" class="btn-primary !py-2 !px-4 text-sm"><i data-lucide="plus"
             class="w-4 h-4 stroke-[2.5]"></i><span>New Request</span></a>
       </div>
@@ -71,7 +76,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-12 grid gap-8 md:grid-cols-3 text-sm text-gray-400">
       <div>
         <a href="#/" class="inline-block mb-3">
-          <img src="logo-white.svg" alt="Unidesk" class="h-8 w-auto object-contain">
+          <img id="footer-logo" src="logo-white.svg" alt="Unidesk" class="h-8 w-auto object-contain">
         </a>
         <p class="text-gray-400 max-w-sm leading-relaxed">One place to report, track and resolve campus issues with
           clarity, speed and impact.</p>

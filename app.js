@@ -109,6 +109,69 @@ const App = (() => {
     staffFilter: 'ALL'
   };
 
+  /* ============ THEME MANAGEMENT (DARK / LIGHT MODE) ============ */
+  const THEME_STORAGE_KEY = 'unidesk_theme';
+  let currentTheme = 'dark';
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === 'light' || saved === 'dark') {
+      currentTheme = saved;
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      currentTheme = 'light';
+    }
+  } catch (e) {}
+
+  function applyTheme(theme) {
+    currentTheme = theme === 'light' ? 'light' : 'dark';
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, currentTheme);
+    } catch (e) {}
+
+    const isLight = currentTheme === 'light';
+    document.body.classList.toggle('light-mode', isLight);
+    document.documentElement.classList.toggle('light-mode', isLight);
+
+    const icon = $('theme-icon');
+    if (icon) {
+      icon.setAttribute('data-lucide', isLight ? 'moon' : 'sun');
+    }
+
+    const toggleBtn = $('theme-toggle-btn');
+    if (toggleBtn) {
+      toggleBtn.setAttribute('title', isLight ? 'Switch to Dark mode' : 'Switch to Light mode');
+      toggleBtn.setAttribute('aria-label', isLight ? 'Switch to Dark mode' : 'Switch to Light mode');
+    }
+
+    const hLogo = $('header-logo');
+    const fLogo = $('footer-logo');
+    if (hLogo) hLogo.src = isLight ? 'logo.svg' : 'logo-white.svg';
+    if (fLogo) fLogo.src = isLight ? 'logo.svg' : 'logo-white.svg';
+
+    if (window.lucide && typeof lucide.createIcons === 'function') {
+      lucide.createIcons();
+    }
+  }
+
+  function toggleTheme() {
+    const next = currentTheme === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    playTone('click');
+    toast(`Switched to ${next === 'light' ? 'Light' : 'Dark'} mode`);
+  }
+
+  try {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
+    if (mediaQuery && mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', e => {
+        try {
+          if (!localStorage.getItem(THEME_STORAGE_KEY)) {
+            applyTheme(e.matches ? 'light' : 'dark');
+          }
+        } catch (err) {}
+      });
+    }
+  } catch (e) {}
+
   const ago = mins => new Date(Date.now() - mins * 60000).toISOString();
 
   /* ============ SINGLETON AUDIO SYNTHESIZER ============ */
@@ -1358,6 +1421,8 @@ const App = (() => {
     const params = new URLSearchParams(qs || '');
     renderNav(path);
     document.body.classList.add('zen');
+    document.body.classList.toggle('light-mode', currentTheme === 'light');
+    document.documentElement.classList.toggle('light-mode', currentTheme === 'light');
     let html;
     if (path === '/') html = pageHome();
     else if (path === '/report') html = `<div class="zen-page-wrap">${pageReport(params)}</div>`;
@@ -1879,6 +1944,9 @@ const App = (() => {
       toast(`Added ${added} demo ticket${added > 1 ? 's' : ''}`);
       render();
     },
+    toggleTheme,
+    applyTheme,
+    getTheme: () => currentTheme,
   };
 
   /* ============ GLOBAL EVENT DELEGATION ============ */
@@ -1899,7 +1967,9 @@ const App = (() => {
     const action = actionEl.dataset.action;
     const id = actionEl.dataset.id;
 
-    if (action === 'zoom-ticket') {
+    if (action === 'toggle-theme') {
+      api.toggleTheme();
+    } else if (action === 'zoom-ticket') {
       const t = tickets.find(x => x.id === id);
       if (t && t.image) openImageModal(t.image);
     } else if (action === 'upvote') {
@@ -2082,6 +2152,7 @@ const App = (() => {
   });
 
   window.addEventListener('DOMContentLoaded', async () => {
+    applyTheme(currentTheme);
     await load();
     render();
   });

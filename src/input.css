@@ -1,6 +1,4 @@
+@import "../zen-custom.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import "../zen-custom.css";
-
