@@ -568,6 +568,32 @@ const App = (() => {
   /* ============ SUPABASE CLIENT & AUTH SUBSYSTEM ============ */
   let supaClient = null;
 
+  function syncSessionToUser(session) {
+    if (!session || !session.user) return;
+    const u = session.user;
+    const meta = u.user_metadata || {};
+    const name = meta.full_name || meta.name || u.email?.split('@')[0].replace(/[._]/g, ' ') || 'Campus User';
+    const email = u.email || '';
+    const avatar = meta.avatar_url || meta.picture || '';
+    const role = meta.role || (email.endsWith('@unidesk.edu') ? 'staff' : 'student');
+    const dept = meta.department || (role === 'staff' ? 'Campus IT Support' : 'Aryabhatta Hostel');
+    const provider = u.app_metadata?.provider || 'google';
+
+    const cur = getAuthUser();
+    if (!cur || cur.id !== u.id || cur.email !== email || cur.avatar !== avatar) {
+      setAuthUser({
+        id: u.id,
+        name,
+        email,
+        role,
+        department: dept,
+        avatar,
+        provider
+      }, true);
+      render();
+    }
+  }
+
   function getSupabase() {
     if (supaClient) return supaClient;
     const url = localStorage.getItem(SUPA_URL_KEY) || DEFAULT_SUPA_URL;
@@ -575,7 +601,19 @@ const App = (() => {
     if (url && key && window.supabase && typeof window.supabase.createClient === 'function') {
       try {
         supaClient = window.supabase.createClient(url, key, {
-          auth: { persistSession: true, autoRefreshToken: true }
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true
+          }
+        });
+        supaClient.auth.onAuthStateChange((event, session) => {
+          if (session && session.user) {
+            syncSessionToUser(session);
+          } else if (event === 'SIGNED_OUT') {
+            clearAuthSession();
+            render();
+          }
         });
         return supaClient;
       } catch (err) {
@@ -643,7 +681,11 @@ const App = (() => {
       const isStaffRole = user.role === 'staff';
       slot.innerHTML = `
         <a href="#/login" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:border-[#a3ff12]/40 transition-colors" title="View Account (${esc(user.email)})">
-          <span class="w-2 h-2 rounded-full ${isStaffRole ? 'bg-amber-400' : 'bg-[#a3ff12]'} animate-pulse"></span>
+          ${user.avatar ? `
+            <img src="${esc(user.avatar)}" alt="${esc(user.name)}" class="w-5 h-5 rounded-full object-cover border border-[#a3ff12]/50 flex-shrink-0" referrerpolicy="no-referrer">
+          ` : `
+            <span class="w-2 h-2 rounded-full ${isStaffRole ? 'bg-amber-400' : 'bg-[#a3ff12]'} animate-pulse"></span>
+          `}
           <span class="truncate max-w-[90px] font-medium">${shortName}</span>
           <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded ${isStaffRole ? 'bg-amber-400/20 text-amber-300' : 'bg-[#a3ff12]/15 text-[#a3ff12]'}">${isStaffRole ? 'Staff' : 'Student'}</span>
         </a>
@@ -1562,6 +1604,13 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
         <span class="group-hover:text-white transition-colors">Continue with Google</span>
       </button>
 
+      <div class="text-center mt-2.5">
+        <button type="button" data-action="open-google-modal" class="text-[11px] font-mono text-gray-400 hover:text-[#a3ff12] transition-colors inline-flex items-center gap-1.5 cursor-pointer">
+          <i data-lucide="settings" class="w-3 h-3"></i>
+          <span>Backend OAuth Setup &amp; Callback URI</span>
+        </button>
+      </div>
+
       <div class="relative flex items-center justify-center my-6">
         <div class="border-t border-white/10 w-full"></div>
         <span class="bg-[#10160e] px-3 text-xs uppercase font-mono text-gray-400 absolute">or sign in with email</span>
@@ -1616,6 +1665,13 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
         ${GOOGLE_ICON_SVG}
         <span class="group-hover:text-white transition-colors">Sign up with Google</span>
       </button>
+
+      <div class="text-center mt-2.5">
+        <button type="button" data-action="open-google-modal" class="text-[11px] font-mono text-gray-400 hover:text-[#a3ff12] transition-colors inline-flex items-center gap-1.5 cursor-pointer">
+          <i data-lucide="settings" class="w-3 h-3"></i>
+          <span>Backend OAuth Setup &amp; Callback URI</span>
+        </button>
+      </div>
 
       <div class="relative flex items-center justify-center my-6">
         <div class="border-t border-white/10 w-full"></div>
@@ -1691,9 +1747,13 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
             <div class="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-[#a3ff12]/5 blur-3xl pointer-events-none"></div>
 
             <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 relative z-10">
-              <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-gradient-to-br from-[#a3ff12]/20 to-white/5 border-2 border-[#a3ff12]/40 flex items-center justify-center font-extrabold text-2xl sm:text-3xl text-[#a3ff12] shadow-[0_0_30px_rgba(163,255,18,0.25)] flex-shrink-0">
-                ${initials}
-              </div>
+              ${user.avatar ? `
+                <img src="${sanitize(user.avatar)}" alt="${sanitize(user.name)}" class="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl border-2 border-[#a3ff12]/50 object-cover shadow-[0_0_30px_rgba(163,255,18,0.25)] flex-shrink-0" referrerpolicy="no-referrer">
+              ` : `
+                <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-gradient-to-br from-[#a3ff12]/20 to-white/5 border-2 border-[#a3ff12]/40 flex items-center justify-center font-extrabold text-2xl sm:text-3xl text-[#a3ff12] shadow-[0_0_30px_rgba(163,255,18,0.25)] flex-shrink-0">
+                  ${initials}
+                </div>
+              `}
 
               <div class="flex-1 text-center sm:text-left">
                 <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 mb-2">
@@ -2051,6 +2111,29 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
 
   function closeImageModal() {
     const modal = $('img-modal');
+    if (modal && !modal.classList.contains('hidden')) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+        lastFocusedElement.focus();
+      }
+    }
+  }
+
+  function openGoogleModal() {
+    const modal = $('google-setup-modal');
+    const closeBtn = $('google-setup-modal-close');
+    if (modal) {
+      lastFocusedElement = document.activeElement;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      if (closeBtn) closeBtn.focus();
+      lucide.createIcons();
+    }
+  }
+
+  function closeGoogleModal() {
+    const modal = $('google-setup-modal');
     if (modal && !modal.classList.contains('hidden')) {
       modal.classList.add('hidden');
       modal.classList.remove('flex');
@@ -2545,24 +2628,54 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
       if (sb && sb.auth) {
         try {
           const redirectTo = window.location.origin + window.location.pathname;
+
+          // Pre-flight check if Google OAuth provider is enabled on Supabase backend
+          const checkRes = await fetch(`${DEFAULT_SUPA_URL}/auth/v1/authorize?provider=google`, {
+            method: 'GET',
+            headers: { 'apikey': DEFAULT_SUPA_KEY }
+          }).catch(() => null);
+
+          if (checkRes && checkRes.status === 400) {
+            const errData = await checkRes.json().catch(() => ({}));
+            if (errData && errData.msg && errData.msg.includes('not enabled')) {
+              openGoogleModal();
+              return;
+            }
+          }
+
           const { data, error } = await sb.auth.signInWithOAuth({
             provider: 'google',
-            options: { redirectTo }
+            options: {
+              redirectTo,
+              queryParams: {
+                access_type: 'offline',
+                prompt: 'consent'
+              }
+            }
           });
-          if (!error && data?.url) {
+          if (error) throw error;
+          if (data?.url) {
             window.location.href = data.url;
             return;
           }
         } catch (err) {
           console.warn('Supabase Google OAuth notice:', err);
+          if (err.message && err.message.includes('not enabled')) {
+            openGoogleModal();
+            return;
+          }
         }
       }
 
-      // Fast instant campus Google sign-in demo fallback
+      api.quickGoogleDemo();
+    },
+
+    quickGoogleDemo() {
+      closeGoogleModal();
       const role = ui.authRole || 'student';
       const isStaff = role === 'staff';
       const user = {
-        id: 'google_' + Date.now(),
+        id: 'google_' + Date.now().toString(36),
         name: isStaff ? 'Rajesh Kumar' : 'Aditya Kumar',
         email: isStaff ? 'rajesh.kumar@unidesk.edu' : 'aditya.kumar@campus.edu',
         role: role,
@@ -2883,13 +2996,23 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
 
   /* ============ GLOBAL EVENT DELEGATION ============ */
   document.addEventListener('click', e => {
-    // Modal close handling
+    // Image modal close handling
     const closeEl = e.target.closest('[data-action="close-modal"]');
     if (closeEl) {
       if (e.target.closest('[data-modal-content="true"]') && !e.target.closest('#img-modal-close')) {
         return; // Click within modal body, don't dismiss
       }
       closeImageModal();
+      return;
+    }
+
+    // Google setup modal close handling
+    const closeGoogleEl = e.target.closest('[data-action="close-google-modal"], [data-action="close-google-modal-backdrop"]');
+    if (closeGoogleEl) {
+      if (e.target.closest('[data-modal-content="true"]') && !e.target.closest('#google-setup-modal-close')) {
+        return;
+      }
+      closeGoogleModal();
       return;
     }
 
@@ -2945,6 +3068,24 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
       api.authLogout();
     } else if (action === 'google-login') {
       api.googleLogin();
+    } else if (action === 'demo-google-login') {
+      api.quickGoogleDemo();
+    } else if (action === 'open-google-modal') {
+      openGoogleModal();
+    } else if (action === 'close-google-modal') {
+      closeGoogleModal();
+    } else if (action === 'copy-google-callback') {
+      const urlText = 'https://xfvpoqfzcsvxfnhrfilf.supabase.co/auth/v1/callback';
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(urlText).then(() => {
+          playTone('click');
+          toast('Copied Callback URL to clipboard!');
+        }).catch(() => {
+          toast('Callback URL: ' + urlText);
+        });
+      } else {
+        toast('Callback URL: ' + urlText);
+      }
     } else if (action === 'demo-login') {
       api.quickDemoLogin(actionEl.dataset.role || 'student');
     } else if (action === 'set-auth-tab') {
@@ -3053,6 +3194,16 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
   window.addEventListener('keydown', e => {
     const modal = $('img-modal');
     const isModalOpen = modal && !modal.classList.contains('hidden');
+    const gModal = $('google-setup-modal');
+    const isGModalOpen = gModal && !gModal.classList.contains('hidden');
+
+    if (isGModalOpen) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeGoogleModal();
+        return;
+      }
+    }
 
     if (isModalOpen) {
       if (e.key === 'Escape') {
@@ -3116,19 +3267,7 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
       try {
         const { data: { session } } = await sb.auth.getSession();
         if (session && session.user && !getAuthUser()) {
-          const userMeta = session.user.user_metadata || {};
-          const name = userMeta.full_name || userMeta.name || session.user.email?.split('@')[0] || 'Campus User';
-          const email = session.user.email || 'user@campus.edu';
-          const role = userMeta.role || 'student';
-          const dept = userMeta.department || (role === 'staff' ? 'Campus IT Support' : 'School of Engineering');
-          setAuthUser({
-            id: session.user.id,
-            name,
-            email,
-            role,
-            department: dept,
-            provider: 'google'
-          }, true);
+          syncSessionToUser(session);
         }
       } catch (err) {
         console.debug('Session check notice:', err);
