@@ -55,6 +55,12 @@ A state-of-the-art campus issue reporting, tracking, and facilities resolution p
 - Department contact directory cards with one-click direct phone dialers.
 
 ### 7. Campus Identity & Login (`#/login`)
+- **Google Authentication & OAuth**:
+  - Direct **"Continue with Google"** and **"Sign up with Google"** buttons with official Google SVG branding.
+  - Linked directly to Supabase Auth OAuth (`signInWithOAuth({ provider: 'google' })`).
+  - Automatic session detection and profile sync (`name`, `email`, Google avatar picture).
+  - Built-in **Backend Setup Guide Modal** with 1-click copy of the project's Authorized Callback URL.
+  - 1-click **Campus Google Demo** mode so reviewers and testing can proceed seamlessly.
 - **Dual Authentication Modes**:
   - **Live Supabase Auth**: Secure cloud login and registration via Supabase (`signInWithPassword` & `signUp`).
   - **Local Sandbox Auth**: Offline-first instant demo mode with automatic fallback when running without cloud credentials.
@@ -65,8 +71,8 @@ A state-of-the-art campus issue reporting, tracking, and facilities resolution p
   - `Demo Student` (Rohan Verma — Aryabhatta Hostel)
   - `Demo Staff Lead` (Rajesh Kumar — Senior IT Lead)
 - **User Profile Dashboard**:
-  - Displays user initials avatar, role badge, email, campus department, reported ticket statistics, and quick navigation.
-  - Dynamic header navigation slot displaying current user state and one-click logout.
+  - Displays user profile picture (from Google) or styled initials, "Google Verified" badge, role badge, email, campus department, reported ticket statistics, and quick navigation.
+  - Dynamic header navigation slot displaying current user state, avatar thumbnail, and one-click logout.
 
 ### 8. Staff Management Portal (`#/staff`)
 - Secure authentication with salted SHA-256 validation, cryptographic session tokens, and brute-force lockout protection (`Demo PIN: 1234`).
@@ -82,9 +88,15 @@ A state-of-the-art campus issue reporting, tracking, and facilities resolution p
 Unidesk features plug-and-play **Supabase** cloud database and authentication integration:
 
 - **Client SDK**: Powered by `@supabase/supabase-js@2.48.1`.
-- **Live Cloud Sync**: Automatically synchronizes new tickets, upvotes, status transitions, technician assignments, and discussion comments with the remote `tickets` table.
-- **In-App Configuration Drawer**: Enter your Supabase Project URL and Public Anon Key directly from the UI with an instant connection test tool.
-- **1-Click SQL Schema Setup**: Includes a copyable SQL snippet ready to run in the Supabase SQL Editor:
+- **Live Cloud Sync**: Automatically synchronizes new tickets, upvotes, status transitions, technician assignments, and discussion comments with the remote `public.tickets` table.
+- **Google OAuth Authentication**:
+  - Live OAuth 2.0 flow integrated via `supabase.auth.signInWithOAuth({ provider: 'google' })`.
+  - **Authorized Redirect URI**:
+    ```text
+    https://xfvpoqfzcsvxfnhrfilf.supabase.co/auth/v1/callback
+    ```
+  - Configurable via Supabase Dashboard &rarr; **Authentication** &rarr; **Providers** &rarr; **Google**.
+- **1-Click SQL Schema Setup**: Remote `public.tickets` schema with Row Level Security:
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.tickets (
