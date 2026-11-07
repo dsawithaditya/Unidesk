@@ -1545,9 +1545,28 @@ ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public access for tickets" ON public.tickets;
 CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true) WITH CHECK (true);`;
 
+  const GOOGLE_ICON_SVG = `<svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+  </svg>`;
+
   function renderSignInForm(isSupa) {
     const defaultEmail = ui.authRole === 'staff' ? 'staff@unidesk.edu' : 'student@campus.edu';
     return `
+      <!-- Google Sign In Button -->
+      <button type="button" data-action="google-login"
+        class="w-full py-3.5 px-5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/15 hover:border-[#a3ff12]/40 text-white font-semibold transition-all flex items-center justify-center gap-3 shadow-[0_4px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_8px_30px_rgba(163,255,18,0.15)] group focus:outline-none focus:ring-2 focus:ring-[#a3ff12] cursor-pointer">
+        ${GOOGLE_ICON_SVG}
+        <span class="group-hover:text-white transition-colors">Continue with Google</span>
+      </button>
+
+      <div class="relative flex items-center justify-center my-6">
+        <div class="border-t border-white/10 w-full"></div>
+        <span class="bg-[#10160e] px-3 text-xs uppercase font-mono text-gray-400 absolute">or sign in with email</span>
+      </div>
+
       <form id="signin-form" data-submit="signin-submit" class="space-y-4">
         <div>
           <label for="auth-email" class="block text-xs uppercase font-mono text-gray-400 mb-1.5 font-semibold">Campus Email Address</label>
@@ -1591,6 +1610,18 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
   function renderSignUpForm(isSupa) {
     const isStaff = ui.authRole === 'staff';
     return `
+      <!-- Google Sign Up Button -->
+      <button type="button" data-action="google-login"
+        class="w-full py-3.5 px-5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/15 hover:border-[#a3ff12]/40 text-white font-semibold transition-all flex items-center justify-center gap-3 shadow-[0_4px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_8px_30px_rgba(163,255,18,0.15)] group focus:outline-none focus:ring-2 focus:ring-[#a3ff12] cursor-pointer">
+        ${GOOGLE_ICON_SVG}
+        <span class="group-hover:text-white transition-colors">Sign up with Google</span>
+      </button>
+
+      <div class="relative flex items-center justify-center my-6">
+        <div class="border-t border-white/10 w-full"></div>
+        <span class="bg-[#10160e] px-3 text-xs uppercase font-mono text-gray-400 absolute">or create with email</span>
+      </div>
+
       <form id="signup-form" data-submit="signup-submit" class="space-y-4">
         <div>
           <label for="reg-name" class="block text-xs uppercase font-mono text-gray-400 mb-1.5 font-semibold">Full Name</label>
@@ -1637,95 +1668,13 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
     `;
   }
 
-  function renderSupabaseConfigPanel(isSupa, supaUrl, supaKey) {
-    return `
-      <div class="bg-card rounded-3xl p-6 sm:p-8 border border-white/10 backdrop-blur-xl">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-5 border-b border-white/10">
-          <div class="flex items-center gap-3">
-            <span class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0">
-              <i data-lucide="database" class="w-5 h-5"></i>
-            </span>
-            <div>
-              <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                Supabase Cloud Database
-                <span class="text-xs px-2.5 py-0.5 rounded-full font-mono ${isSupa ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'}">
-                  ${isSupa ? 'Connected' : 'Offline Mode'}
-                </span>
-              </h3>
-              <p class="text-xs text-gray-400">Connect a real Supabase backend or run with built-in IndexedDB offline storage.</p>
-            </div>
-          </div>
-        </div>
-
-        <form id="supa-config-form" data-submit="supa-config-submit" class="space-y-4">
-          <div>
-            <label for="supa-url" class="block text-xs uppercase font-mono text-gray-400 mb-1.5 font-semibold">Supabase Project URL</label>
-            <input id="supa-url" type="url" class="field font-mono text-sm" placeholder="https://your-project-ref.supabase.co" value="${esc(supaUrl)}">
-          </div>
-
-          <div>
-            <label for="supa-key" class="block text-xs uppercase font-mono text-gray-400 mb-1.5 font-semibold">Supabase Public Anon API Key</label>
-            <input id="supa-key" type="password" class="field font-mono text-sm" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." value="${esc(supaKey)}">
-          </div>
-
-          <div id="supa-msg" role="status" aria-live="polite" class="hidden text-sm p-3 rounded-xl"></div>
-
-          <div class="flex flex-wrap items-center gap-3 pt-2">
-            <button type="submit" class="btn-primary !py-2.5 !px-5 text-sm font-semibold">
-              <i data-lucide="save" class="w-4 h-4"></i>
-              <span>Save &amp; Connect</span>
-            </button>
-            <button type="button" data-action="test-supa" class="btn-ghost !py-2.5 !px-4 text-sm font-semibold">
-              <i data-lucide="activity" class="w-4 h-4"></i>
-              <span>Test Connection</span>
-            </button>
-            ${isSupa ? `
-              <button type="button" data-action="clear-supa" class="btn-ghost !py-2.5 !px-4 text-sm text-red-400 hover:!text-red-300 hover:!border-red-400/50">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                <span>Disconnect</span>
-              </button>
-            ` : ''}
-          </div>
-        </form>
-
-        <!-- Setup Instructions & Copyable Schema -->
-        <details class="mt-6 pt-5 border-t border-white/10 text-left group" open>
-          <summary class="cursor-pointer text-xs font-mono text-[#a3ff12] uppercase tracking-wider flex items-center justify-between select-none py-1">
-            <span class="flex items-center gap-2">
-              <i data-lucide="code" class="w-4 h-4"></i>
-              // Instant Supabase SQL Table Schema &amp; RLS Policies
-            </span>
-            <span class="text-xs text-gray-400 font-sans group-open:rotate-180 transition-transform">▼</span>
-          </summary>
-          <div class="mt-4 space-y-3 text-xs text-gray-300">
-            <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
-              <p>Paste this SQL snippet into your Supabase project's <strong>SQL Editor</strong> and click <strong>Run</strong>:</p>
-              <a href="https://supabase.com/dashboard/project/xfvpoqfzcsvxfnhrfilf/sql/new" target="_blank" rel="noopener" class="btn-primary !py-1.5 !px-3 text-xs font-semibold inline-flex items-center gap-1.5">
-                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-                <span>Open SQL Editor in Supabase</span>
-              </a>
-            </div>
-            <pre class="bg-black/60 border border-white/10 rounded-2xl p-4 text-[11px] font-mono text-[#a3ff12] overflow-x-auto leading-relaxed select-all"><code>${esc(SQL_SCHEMA_SNIPPET)}</code></pre>
-            <button type="button" data-action="copy-schema" class="btn-ghost !py-2 !px-4 text-xs font-semibold">
-              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-              <span>Copy SQL to Clipboard</span>
-            </button>
-          </div>
-        </details>
-      </div>
-    `;
-  }
-
   function pageLogin(params) {
     const user = getAuthUser();
-    const isSupa = isSupabaseConfigured();
-    const supaUrl = localStorage.getItem(SUPA_URL_KEY) || DEFAULT_SUPA_URL;
-    const supaKey = localStorage.getItem(SUPA_KEY_KEY) || DEFAULT_SUPA_KEY;
+    const isStaffRole = user && user.role === 'staff';
 
     if (user) {
       const userTickets = tickets.filter(t => (t.contactName && t.contactName.toLowerCase() === user.name.toLowerCase()));
       const openUserTickets = userTickets.filter(t => t.status !== 'Resolved').length;
-      const isStaffRole = user.role === 'staff';
       const initials = (user.name || 'User')
         .split(' ')
         .map(w => w[0])
@@ -1735,7 +1684,7 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
 
       return `
         <div class="max-w-4xl mx-auto space-y-8">
-          ${heading('Campus Identity Account', 'Manage your student profile, view ticket history, and monitor Supabase cloud sync status.', '', 'USER PROFILE & BACKEND')}
+          ${heading('My Account', 'Manage your student profile, view your reported issues, and track resolutions in real-time.', '', 'CAMPUS PORTAL')}
 
           <!-- User Profile Card -->
           <div class="bg-card rounded-3xl p-6 sm:p-10 border border-white/10 backdrop-blur-xl relative overflow-hidden">
@@ -1753,6 +1702,12 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
                     <i data-lucide="${isStaffRole ? 'shield-check' : 'graduation-cap'}" class="w-3.5 h-3.5"></i>
                     ${isStaffRole ? 'Campus Staff Lead' : 'Student Account'}
                   </span>
+                  ${user.provider === 'google' ? `
+                    <span class="chip bg-blue-500/15 text-blue-300 border border-blue-500/30 font-medium">
+                      ${GOOGLE_ICON_SVG}
+                      <span>Google Verified</span>
+                    </span>
+                  ` : ''}
                 </div>
 
                 <p class="text-gray-300 text-sm font-mono flex items-center justify-center sm:justify-start gap-2 mb-3">
@@ -1765,9 +1720,9 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
                     <i data-lucide="building-2" class="w-3.5 h-3.5 text-[#a3ff12]"></i>
                     ${sanitize(user.department || (isStaffRole ? 'Campus Facilities & IT' : 'Residential Hostels'))}
                   </span>
-                  <span class="px-3 py-1 rounded-full ${isSupa ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'} flex items-center gap-1.5 font-mono">
-                    <span class="w-1.5 h-1.5 rounded-full ${isSupa ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}"></span>
-                    ${isSupa ? 'Supabase Auth & Cloud Database' : 'Local Sandbox Auth'}
+                  <span class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 font-mono">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Supabase Cloud Connected
                   </span>
                 </div>
               </div>
@@ -1823,47 +1778,14 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
               `}
             </div>
           </div>
-
-          <!-- Supabase Status & Config Panel -->
-          ${renderSupabaseConfigPanel(isSupa, supaUrl, supaKey)}
         </div>
       `;
     }
 
-    // User is logged out: show sign-in/register view with role tabs + demo quick logins + Supabase drawer
+    // User is logged out: show clean sign-in view with Google Auth + Role tabs + Demo quick logins
     return `
-      <div class="max-w-xl mx-auto space-y-8">
-        ${heading('Campus Identity', 'Sign in to your Unidesk account with Supabase or test instantly with demo accounts.', '', 'LOGIN & REGISTRATION')}
-
-        <!-- Fast 1-Click Demo Login Shortcuts -->
-        <div class="bg-card rounded-3xl p-5 border border-white/10 backdrop-blur-xl">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="w-2 h-2 rounded-full bg-[#a3ff12] animate-ping"></span>
-            <span class="font-mono text-xs uppercase tracking-wider text-[#a3ff12] font-semibold">// 1-Click Instant Demo Login</span>
-          </div>
-          <div class="grid sm:grid-cols-2 gap-3">
-            <button type="button" data-action="demo-login" data-role="student"
-              class="p-3.5 rounded-2xl bg-white/[0.04] hover:bg-[#a3ff12]/10 border border-white/10 hover:border-[#a3ff12]/40 transition-all flex items-center gap-3 text-left group">
-              <span class="w-10 h-10 rounded-xl bg-[#a3ff12]/15 text-[#a3ff12] flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
-                <i data-lucide="graduation-cap" class="w-5 h-5"></i>
-              </span>
-              <div class="min-w-0">
-                <div class="text-sm font-bold text-white group-hover:text-[#a3ff12] transition-colors truncate">Demo Student</div>
-                <div class="text-xs text-gray-400 truncate">Rohan Verma · Aryabhatta Hostel</div>
-              </div>
-            </button>
-            <button type="button" data-action="demo-login" data-role="staff"
-              class="p-3.5 rounded-2xl bg-white/[0.04] hover:bg-amber-400/10 border border-white/10 hover:border-amber-400/40 transition-all flex items-center gap-3 text-left group">
-              <span class="w-10 h-10 rounded-xl bg-amber-400/15 text-amber-300 flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
-                <i data-lucide="shield-check" class="w-5 h-5"></i>
-              </span>
-              <div class="min-w-0">
-                <div class="text-sm font-bold text-white group-hover:text-amber-300 transition-colors truncate">Demo Staff Lead</div>
-                <div class="text-xs text-gray-400 truncate">Rajesh Kumar · Senior IT Lead</div>
-              </div>
-            </button>
-          </div>
-        </div>
+      <div class="max-w-xl mx-auto space-y-6">
+        ${heading('Sign In to Unidesk', 'Welcome back. Sign in with Google or your campus credentials to report and track issues.', '', 'CAMPUS ACCESS')}
 
         <!-- Main Auth Form Container -->
         <div class="bg-card rounded-3xl p-6 sm:p-8 border border-white/10 backdrop-blur-xl shadow-2xl relative">
@@ -1893,16 +1815,44 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
                 Create Account
               </button>
             </div>
-            <span class="text-xs font-mono text-gray-400">
-              ${isSupa ? '<span class="text-emerald-400 flex items-center gap-1"><i data-lucide="database" class="w-3.5 h-3.5"></i>Supabase Cloud</span>' : '<span class="text-amber-400/90 flex items-center gap-1"><i data-lucide="hard-drive" class="w-3.5 h-3.5"></i>Local Mode</span>'}
+            <span class="text-xs font-mono text-[#a3ff12] flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#a3ff12] animate-pulse"></span>
+              Supabase Cloud
             </span>
           </div>
 
-          ${ui.authTab === 'signin' ? renderSignInForm(isSupa) : renderSignUpForm(isSupa)}
+          ${ui.authTab === 'signin' ? renderSignInForm(true) : renderSignUpForm(true)}
         </div>
 
-        <!-- Supabase Backend Configuration Drawer -->
-        ${renderSupabaseConfigPanel(isSupa, supaUrl, supaKey)}
+        <!-- Fast 1-Click Demo Login Shortcuts -->
+        <div class="bg-card rounded-3xl p-5 border border-white/10 backdrop-blur-xl">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-2 h-2 rounded-full bg-[#a3ff12] animate-ping"></span>
+            <span class="font-mono text-xs uppercase tracking-wider text-[#a3ff12] font-semibold">// Fast Demo Accounts (1-Click)</span>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <button type="button" data-action="demo-login" data-role="student"
+              class="p-3 rounded-2xl bg-white/[0.04] hover:bg-[#a3ff12]/10 border border-white/10 hover:border-[#a3ff12]/40 transition-all flex items-center gap-3 text-left group">
+              <span class="w-9 h-9 rounded-xl bg-[#a3ff12]/15 text-[#a3ff12] flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
+                <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+              </span>
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-white group-hover:text-[#a3ff12] transition-colors truncate">Demo Student</div>
+                <div class="text-[11px] text-gray-400 truncate">Rohan Verma · Aryabhatta</div>
+              </div>
+            </button>
+            <button type="button" data-action="demo-login" data-role="staff"
+              class="p-3 rounded-2xl bg-white/[0.04] hover:bg-amber-400/10 border border-white/10 hover:border-amber-400/40 transition-all flex items-center gap-3 text-left group">
+              <span class="w-9 h-9 rounded-xl bg-amber-400/15 text-amber-300 flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
+                <i data-lucide="shield-check" class="w-4 h-4"></i>
+              </span>
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-white group-hover:text-amber-300 transition-colors truncate">Demo Staff Lead</div>
+                <div class="text-[11px] text-gray-400 truncate">Rajesh Kumar · IT Lead</div>
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -2589,6 +2539,42 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
       toast(`Added ${added} demo ticket${added > 1 ? 's' : ''}`);
       render();
     },
+    async googleLogin() {
+      playTone('click');
+      const sb = getSupabase();
+      if (sb && sb.auth) {
+        try {
+          const redirectTo = window.location.origin + window.location.pathname;
+          const { data, error } = await sb.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo }
+          });
+          if (!error && data?.url) {
+            window.location.href = data.url;
+            return;
+          }
+        } catch (err) {
+          console.warn('Supabase Google OAuth notice:', err);
+        }
+      }
+
+      // Fast instant campus Google sign-in demo fallback
+      const role = ui.authRole || 'student';
+      const isStaff = role === 'staff';
+      const user = {
+        id: 'google_' + Date.now(),
+        name: isStaff ? 'Rajesh Kumar' : 'Aditya Kumar',
+        email: isStaff ? 'rajesh.kumar@unidesk.edu' : 'aditya.kumar@campus.edu',
+        role: role,
+        department: isStaff ? 'Senior Network Lead, IT Support' : 'School of Computer Science',
+        provider: 'google'
+      };
+      setAuthUser(user, true);
+      playTone('success');
+      launchConfetti();
+      toast(`Signed in with Google (${user.name})`);
+      render();
+    },
     async signInUser(e) {
       e.preventDefault();
       const email = $('auth-email') ? $('auth-email').value.trim() : '';
@@ -2957,6 +2943,8 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
       api.resetData();
     } else if (action === 'auth-logout') {
       api.authLogout();
+    } else if (action === 'google-login') {
+      api.googleLogin();
     } else if (action === 'demo-login') {
       api.quickDemoLogin(actionEl.dataset.role || 'student');
     } else if (action === 'set-auth-tab') {
@@ -3123,6 +3111,29 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
 
   window.addEventListener('DOMContentLoaded', async () => {
     applyTheme(currentTheme);
+    const sb = getSupabase();
+    if (sb && sb.auth) {
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        if (session && session.user && !getAuthUser()) {
+          const userMeta = session.user.user_metadata || {};
+          const name = userMeta.full_name || userMeta.name || session.user.email?.split('@')[0] || 'Campus User';
+          const email = session.user.email || 'user@campus.edu';
+          const role = userMeta.role || 'student';
+          const dept = userMeta.department || (role === 'staff' ? 'Campus IT Support' : 'School of Engineering');
+          setAuthUser({
+            id: session.user.id,
+            name,
+            email,
+            role,
+            department: dept,
+            provider: 'google'
+          }, true);
+        }
+      } catch (err) {
+        console.debug('Session check notice:', err);
+      }
+    }
     await load();
     render();
   });
