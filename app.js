@@ -10,6 +10,9 @@ const App = (() => {
   const SUPA_KEY_KEY = 'unidesk_supabase_anon_key';
   const AUTH_USER_KEY = 'unidesk_auth_user';
 
+  const DEFAULT_SUPA_URL = 'https://xfvpoqfzcsvxfnhrfilf.supabase.co';
+  const DEFAULT_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmdnBvcWZ6Y3N2eGZuaHJmaWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MTg1MDMsImV4cCI6MjEwODM5NDUwM30.8_LgC2pjevNIRaSZOd8hFZbkqemc1OPgakN8RXAgG4w';
+
   const STATUSES = ['Open', 'In Progress', 'Resolved'];
   const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
   const CATEGORIES = [
@@ -567,8 +570,8 @@ const App = (() => {
 
   function getSupabase() {
     if (supaClient) return supaClient;
-    const url = localStorage.getItem(SUPA_URL_KEY);
-    const key = localStorage.getItem(SUPA_KEY_KEY);
+    const url = localStorage.getItem(SUPA_URL_KEY) || DEFAULT_SUPA_URL;
+    const key = localStorage.getItem(SUPA_KEY_KEY) || DEFAULT_SUPA_KEY;
     if (url && key && window.supabase && typeof window.supabase.createClient === 'function') {
       try {
         supaClient = window.supabase.createClient(url, key, {
@@ -584,7 +587,7 @@ const App = (() => {
   }
 
   function isSupabaseConfigured() {
-    return Boolean(localStorage.getItem(SUPA_URL_KEY) && localStorage.getItem(SUPA_KEY_KEY));
+    return Boolean((localStorage.getItem(SUPA_URL_KEY) || DEFAULT_SUPA_URL) && (localStorage.getItem(SUPA_KEY_KEY) || DEFAULT_SUPA_KEY));
   }
 
   function getAuthUser() {
@@ -1686,7 +1689,7 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
         </form>
 
         <!-- Setup Instructions & Copyable Schema -->
-        <details class="mt-6 pt-5 border-t border-white/10 text-left group">
+        <details class="mt-6 pt-5 border-t border-white/10 text-left group" open>
           <summary class="cursor-pointer text-xs font-mono text-[#a3ff12] uppercase tracking-wider flex items-center justify-between select-none py-1">
             <span class="flex items-center gap-2">
               <i data-lucide="code" class="w-4 h-4"></i>
@@ -1695,7 +1698,13 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
             <span class="text-xs text-gray-400 font-sans group-open:rotate-180 transition-transform">▼</span>
           </summary>
           <div class="mt-4 space-y-3 text-xs text-gray-300">
-            <p>Paste this SQL snippet into your Supabase project's <strong>SQL Editor</strong> and click <strong>Run</strong> to set up the helpdesk table:</p>
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+              <p>Paste this SQL snippet into your Supabase project's <strong>SQL Editor</strong> and click <strong>Run</strong>:</p>
+              <a href="https://supabase.com/dashboard/project/xfvpoqfzcsvxfnhrfilf/sql/new" target="_blank" rel="noopener" class="btn-primary !py-1.5 !px-3 text-xs font-semibold inline-flex items-center gap-1.5">
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                <span>Open SQL Editor in Supabase</span>
+              </a>
+            </div>
             <pre class="bg-black/60 border border-white/10 rounded-2xl p-4 text-[11px] font-mono text-[#a3ff12] overflow-x-auto leading-relaxed select-all"><code>${esc(SQL_SCHEMA_SNIPPET)}</code></pre>
             <button type="button" data-action="copy-schema" class="btn-ghost !py-2 !px-4 text-xs font-semibold">
               <i data-lucide="copy" class="w-3.5 h-3.5"></i>
@@ -1710,8 +1719,8 @@ CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true)
   function pageLogin(params) {
     const user = getAuthUser();
     const isSupa = isSupabaseConfigured();
-    const supaUrl = localStorage.getItem(SUPA_URL_KEY) || '';
-    const supaKey = localStorage.getItem(SUPA_KEY_KEY) || '';
+    const supaUrl = localStorage.getItem(SUPA_URL_KEY) || DEFAULT_SUPA_URL;
+    const supaKey = localStorage.getItem(SUPA_KEY_KEY) || DEFAULT_SUPA_KEY;
 
     if (user) {
       const userTickets = tickets.filter(t => (t.contactName && t.contactName.toLowerCase() === user.name.toLowerCase()));
