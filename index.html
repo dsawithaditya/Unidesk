@@ -8,7 +8,7 @@
   <meta name="description" content="Report, track and resolve campus issues with clarity, speed and impact.">
 
   <!-- Content Security Policy -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co;">
 
   <!-- PWA & Mobile Meta Tags -->
   <meta name="theme-color" content="#a3ff12">
@@ -38,9 +38,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 
-  <!-- Vendor Libraries: Pinned Lucide Icons & DOMPurify Sanitizer -->
+  <!-- Vendor Libraries: Pinned Lucide Icons, DOMPurify Sanitizer & Supabase Client SDK -->
   <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.2.3/purify.min.js"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2.48.1/dist/umd/supabase.js"></script>
 </head>
 
 <body class="zen font-sans text-gray-100 antialiased">
@@ -59,6 +60,7 @@
           <kbd class="text-[#a3ff12] font-semibold">/</kbd> search <span class="text-gray-400">·</span> <kbd
             class="text-[#a3ff12] font-semibold">N</kbd> report
         </span>
+        <div id="auth-nav-slot"></div>
         <button id="theme-toggle-btn" type="button" data-action="toggle-theme"
           class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-300 hover:text-[#a3ff12] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a3ff12]"
           title="Toggle Light / Dark mode" aria-label="Toggle theme mode">
@@ -89,6 +91,7 @@
       </div>
       <div class="flex flex-col gap-2">
         <div class="font-bold text-xs uppercase tracking-wider mb-1 text-[#a3ff12] font-mono">// Management</div>
+        <a class="hover:text-[#a3ff12] transition-colors" href="#/login">Login / Supabase Account</a>
         <a class="hover:text-[#a3ff12] transition-colors" href="#/staff">Staff Portal</a>
         <button type="button" class="text-left hover:text-[#a3ff12] transition-colors" data-action="add-demo">+ Add demo tickets</button>
         <button type="button" class="text-left hover:text-[#a3ff12] transition-colors" data-action="reset-demo">Reset demo data</button>

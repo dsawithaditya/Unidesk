@@ -6,6 +6,10 @@ const App = (() => {
   // Salted SHA-256 hash of 'unidesk_2026_salt_1234'
   const PIN_HASH = 'a3807912ae50bac23ed29e4053be177c74bcf98a30d1235d59efa88005431962';
 
+  const SUPA_URL_KEY = 'unidesk_supabase_url';
+  const SUPA_KEY_KEY = 'unidesk_supabase_anon_key';
+  const AUTH_USER_KEY = 'unidesk_auth_user';
+
   const STATUSES = ['Open', 'In Progress', 'Resolved'];
   const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
   const CATEGORIES = [
@@ -106,7 +110,9 @@ const App = (() => {
     draftCat: '',
     draftPrio: 'Medium',
     draftImage: null,
-    staffFilter: 'ALL'
+    staffFilter: 'ALL',
+    authTab: 'signin',
+    authRole: 'student'
   };
 
   /* ============ THEME MANAGEMENT (DARK / LIGHT MODE) ============ */
@@ -485,6 +491,38 @@ const App = (() => {
       });
       if (changed) save();
     }
+
+    // Cloud Database Sync: query Supabase tickets if project is connected
+    const sb = getSupabase();
+    if (sb) {
+      try {
+        const { data, error } = await sb.from('tickets').select('*').order('created_at', { ascending: false });
+        if (!error && Array.isArray(data) && data.length > 0) {
+          tickets = data.map(row => ({
+            id: row.id,
+            title: row.title,
+            category: row.category,
+            department: row.department || DEPT_MAP[row.category] || 'General Administration',
+            priority: row.priority || 'Medium',
+            location: row.location || 'Campus',
+            contactName: row.contact_name || row.contactName || 'Anonymous',
+            description: row.description || '',
+            upvotes: Number(row.upvotes) || 0,
+            status: row.status || 'Open',
+            createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+            timeline: Array.isArray(row.timeline) ? row.timeline : (typeof row.timeline === 'string' ? JSON.parse(row.timeline) : [{ status: row.status || 'Open', at: row.created_at || new Date().toISOString(), note: 'Synced from Supabase' }]),
+            assignee: row.assignee || 'Unassigned',
+            comments: Array.isArray(row.comments) ? row.comments : (typeof row.comments === 'string' ? JSON.parse(row.comments) : []),
+            rating: row.rating || undefined,
+            feedback: row.feedback || undefined,
+            image: row.image || undefined
+          }));
+          save();
+        }
+      } catch (err) {
+        console.debug('Supabase initial fetch skipped:', err);
+      }
+    }
   }
 
   function save() {
@@ -524,7 +562,140 @@ const App = (() => {
     return String(hash);
   }
 
+  /* ============ SUPABASE CLIENT & AUTH SUBSYSTEM ============ */
+  let supaClient = null;
+
+  function getSupabase() {
+    if (supaClient) return supaClient;
+    const url = localStorage.getItem(SUPA_URL_KEY);
+    const key = localStorage.getItem(SUPA_KEY_KEY);
+    if (url && key && window.supabase && typeof window.supabase.createClient === 'function') {
+      try {
+        supaClient = window.supabase.createClient(url, key, {
+          auth: { persistSession: true, autoRefreshToken: true }
+        });
+        return supaClient;
+      } catch (err) {
+        console.warn('Supabase client initialization skipped:', err);
+        return null;
+      }
+    }
+    return null;
+  }
+
+  function isSupabaseConfigured() {
+    return Boolean(localStorage.getItem(SUPA_URL_KEY) && localStorage.getItem(SUPA_KEY_KEY));
+  }
+
+  function getAuthUser() {
+    try {
+      const raw = localStorage.getItem(AUTH_USER_KEY) || sessionStorage.getItem(AUTH_USER_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function setAuthUser(user, persist = true) {
+    try {
+      if (user) {
+        const str = JSON.stringify(user);
+        if (persist) {
+          localStorage.setItem(AUTH_USER_KEY, str);
+        } else {
+          sessionStorage.setItem(AUTH_USER_KEY, str);
+        }
+        if (user.role === 'staff') {
+          const sessionData = {
+            role: 'staff',
+            token: 'supa_' + (user.id || 'token_' + Date.now()),
+            expiresAt: Date.now() + 8 * 3600 * 1000
+          };
+          sessionStorage.setItem(TOKEN_KEY, JSON.stringify(sessionData));
+        }
+      } else {
+        localStorage.removeItem(AUTH_USER_KEY);
+        sessionStorage.removeItem(AUTH_USER_KEY);
+      }
+    } catch (e) {
+      console.warn('Failed to update auth user storage', e);
+    }
+  }
+
+  function clearAuthSession() {
+    setAuthUser(null);
+    sessionStorage.removeItem(TOKEN_KEY);
+    const sb = getSupabase();
+    if (sb && sb.auth) {
+      sb.auth.signOut().catch(() => {});
+    }
+  }
+
+  function renderAuthNav() {
+    const slot = $('auth-nav-slot');
+    if (!slot) return;
+    const user = getAuthUser();
+    if (user) {
+      const shortName = esc(user.name ? user.name.split(' ')[0] : 'User');
+      const isStaffRole = user.role === 'staff';
+      slot.innerHTML = `
+        <a href="#/login" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:border-[#a3ff12]/40 transition-colors" title="View Account (${esc(user.email)})">
+          <span class="w-2 h-2 rounded-full ${isStaffRole ? 'bg-amber-400' : 'bg-[#a3ff12]'} animate-pulse"></span>
+          <span class="truncate max-w-[90px] font-medium">${shortName}</span>
+          <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded ${isStaffRole ? 'bg-amber-400/20 text-amber-300' : 'bg-[#a3ff12]/15 text-[#a3ff12]'}">${isStaffRole ? 'Staff' : 'Student'}</span>
+        </a>
+      `;
+    } else {
+      slot.innerHTML = `
+        <a href="#/login" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-[#a3ff12] hover:border-[#a3ff12]/30 transition-colors">
+          <i data-lucide="user" class="w-3.5 h-3.5"></i>
+          <span>Sign In</span>
+        </a>
+      `;
+    }
+    lucide.createIcons();
+  }
+
+  function syncTicketToSupabase(ticket, fieldsOnly) {
+    const sb = getSupabase();
+    if (!sb || !ticket) return;
+    try {
+      if (fieldsOnly) {
+        sb.from('tickets').update(fieldsOnly).eq('id', ticket.id).then(({ error }) => {
+          if (error) console.debug('Supabase sync update notice:', error.message);
+        }).catch(() => {});
+      } else {
+        const payload = {
+          id: ticket.id,
+          title: ticket.title,
+          category: ticket.category,
+          department: ticket.department,
+          priority: ticket.priority,
+          location: ticket.location,
+          contact_name: ticket.contactName,
+          description: ticket.description,
+          upvotes: ticket.upvotes || 0,
+          status: ticket.status,
+          created_at: ticket.createdAt,
+          timeline: ticket.timeline,
+          assignee: ticket.assignee,
+          comments: ticket.comments,
+          rating: ticket.rating || null,
+          feedback: ticket.feedback || null,
+          image: ticket.image || null
+        };
+        sb.from('tickets').upsert(payload).then(({ error }) => {
+          if (error) console.debug('Supabase sync upsert notice:', error.message);
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.debug('Supabase sync error:', e);
+    }
+  }
+
   function isStaff() {
+    const supaUser = getAuthUser();
+    if (supaUser && supaUser.role === 'staff') return true;
     try {
       const raw = sessionStorage.getItem(TOKEN_KEY);
       if (!raw) return false;
@@ -602,8 +773,13 @@ const App = (() => {
 
   /* ---------- navigation ---------- */
   const NAV = [
-    ['#/', 'Home', 'house'], ['#/report', 'Report', 'square-pen'], ['#/requests', 'Track', 'list-checks'],
-    ['#/help', 'Help', 'book-open'], ['#/directory', 'Directory', 'phone'], ['#/staff', 'Staff', 'shield-check'],
+    ['#/', 'Home', 'house'],
+    ['#/report', 'Report', 'square-pen'],
+    ['#/requests', 'Track', 'list-checks'],
+    ['#/help', 'Help', 'book-open'],
+    ['#/directory', 'Directory', 'phone'],
+    ['#/staff', 'Staff', 'shield-check'],
+    ['#/login', 'Account', 'user']
   ];
   function renderNav(path) {
     const active = h => (h === '#/' ? path === '/' : ('#' + path).startsWith(h));
@@ -611,6 +787,7 @@ const App = (() => {
     const tabEl = $('tabbar');
     if (navEl) navEl.innerHTML = NAV.map(([h, l]) => `<a href="${h}" class="nav-link ${active(h) ? 'active' : ''}">${l}</a>`).join('');
     if (tabEl) tabEl.innerHTML = NAV.map(([h, l, i]) => `<a href="${h}" class="tab-link ${active(h) ? 'active' : ''}"><i data-lucide="${i}" class="w-5 h-5"></i>${l}</a>`).join('');
+    renderAuthNav();
   }
 
   /* ---------- pages ---------- */
@@ -875,7 +1052,8 @@ const App = (() => {
 
   function pageReport(params) {
     if (params.get('cat') && CATEGORIES.some(c => c.name === params.get('cat'))) ui.draftCat = params.get('cat');
-    const savedName = localStorage.getItem('unidesk_name') || localStorage.getItem('campuscare_name') || '';
+    const authUser = getAuthUser();
+    const savedName = (authUser && authUser.name) || localStorage.getItem('unidesk_name') || localStorage.getItem('campuscare_name') || '';
     const currentDept = DEPT_MAP[ui.draftCat] || DEPARTMENTS[0];
     return `<div class="max-w-5xl mx-auto">
       ${heading('Report an issue', 'Tell us what is wrong and where. We will route it to the right team.', '', 'SUBMIT TICKET')}
@@ -1337,6 +1515,389 @@ const App = (() => {
     </div>`;
   }
 
+  /* ============ PAGE: LOGIN & SUPABASE CLOUD MANAGEMENT ============ */
+  const SQL_SCHEMA_SNIPPET = `-- Unidesk Campus Helpdesk: Supabase SQL Table Schema & RLS Policies
+CREATE TABLE IF NOT EXISTS public.tickets (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  department TEXT,
+  priority TEXT NOT NULL DEFAULT 'Medium',
+  location TEXT NOT NULL,
+  contact_name TEXT,
+  description TEXT NOT NULL,
+  upvotes INTEGER DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'Open',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  timeline JSONB DEFAULT '[]'::jsonb,
+  assignee TEXT DEFAULT 'Unassigned',
+  comments JSONB DEFAULT '[]'::jsonb,
+  rating INTEGER,
+  feedback JSONB,
+  image TEXT
+);
+
+-- Enable Row Level Security and allow public read/write
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public access for tickets" ON public.tickets;
+CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true) WITH CHECK (true);`;
+
+  function renderSignInForm(isSupa) {
+    const defaultEmail = ui.authRole === 'staff' ? 'staff@unidesk.edu' : 'student@campus.edu';
+    return `
+      <form id="signin-form" data-submit="signin-submit" class="space-y-4">
+        <div>
+          <label for="auth-email" class="block text-xs uppercase font-mono text-gray-400 mb-1.5 font-semibold">Campus Email Address</label>
+          <div class="relative">
+            <input id="auth-email" type="email" required class="field !pl-11" placeholder="${defaultEmail}" autocomplete="email">
+            <i data-lucide="mail" class="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label for="auth-password" class="block text-xs uppercase font-mono text-gray-400 font-semibold">Password</label>
+          </div>
+          <div class="relative">
+            <input id="auth-password" type="password" required class="field !pl-11 !pr-11" placeholder="••••••••" autocomplete="current-password">
+            <i data-lucide="lock" class="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+            <button type="button" data-action="toggle-pass-vis" data-target="auth-password" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1" aria-label="Toggle password visibility">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-xs pt-1">
+          <label class="flex items-center gap-2 cursor-pointer text-gray-300 select-none">
+            <input id="auth-remember" type="checkbox" checked class="w-4 h-4 rounded border-white/20 bg-black/40 text-[#a3ff12] focus:ring-[#a3ff12]">
+            <span>Keep me signed in</span>
+          </label>
+          <a href="#/help" class="text-gray-400 hover:text-[#a3ff12] transition-colors">Need help?</a>
+        </div>
+
+        <p id="auth-err" role="alert" aria-live="polite" class="hidden text-red-400 text-sm font-medium bg-red-500/10 border border-red-500/20 rounded-xl p-3"></p>
+
+        <button type="submit" id="auth-submit-btn" class="btn-primary w-full !py-3.5 font-bold shadow-[0_8px_30px_rgba(163,255,18,0.3)] mt-2">
+          <i data-lucide="log-in" class="w-4 h-4 stroke-[2.5]"></i>
+          <span>Sign In as ${ui.authRole === 'staff' ? 'Campus Staff' : 'Student'}</span>
+        </button>
+      </form>
+    `;
+  }
+
+  function renderSignUpForm(isSupa) {
+    const isStaff = ui.authRole === 'staff';
+    return `
+      <form id="signup-form" data-submit="signup-submit" class="space-y-4">
+        <div>
+          <label for="reg-name" class="block text-xs uppercase font-mono text-gray-400 mb-1.5 font-semibold">Full Name</label>
+          <div class="relative">
+            <input id="reg-name" type="text" required class="field !pl-11" placeholder="${isStaff ? 'e.g. Vikram Singh' : 'e.g. Ananya Sen'}" autocomplete="name">
+            <i data-lucide="user" class="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+          </div>
+        </div>
+
+        <div>
+          <label for="reg-email" class="block text-xs uppercase font-mono text-gray-400 mb-1.5 font-semibold">${isStaff ? 'Official Staff Email' : 'Student Email'}</label>
+          <div class="relative">
+            <input id="reg-email" type="email" required class="field !pl-11" placeholder="${isStaff ? 'v.singh@unidesk.edu' : 'ananya.s@campus.edu'}" autocomplete="email">
+            <i data-lucide="mail" class="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+          </div>
+        </div>
+
+        <div>
+          <label for="reg-dept" class="block text-xs uppercase font-mono text-gray-400 mb-1.5 font-semibold">${isStaff ? 'Campus Department' : 'Hostel Block / Department'}</label>
+          <div class="relative">
+            <input id="reg-dept" type="text" class="field !pl-11" placeholder="${isStaff ? 'e.g. IT & Network Support' : 'e.g. Tech Block A, Room 304'}">
+            <i data-lucide="building-2" class="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+          </div>
+        </div>
+
+        <div>
+          <label for="reg-password" class="block text-xs uppercase font-mono text-gray-400 mb-1.5 font-semibold">Create Password (min. 6 characters)</label>
+          <div class="relative">
+            <input id="reg-password" type="password" required minlength="6" class="field !pl-11 !pr-11" placeholder="••••••••" autocomplete="new-password">
+            <i data-lucide="lock" class="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+            <button type="button" data-action="toggle-pass-vis" data-target="reg-password" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1" aria-label="Toggle password visibility">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <p id="reg-err" role="alert" aria-live="polite" class="hidden text-red-400 text-sm font-medium bg-red-500/10 border border-red-500/20 rounded-xl p-3"></p>
+
+        <button type="submit" id="reg-submit-btn" class="btn-primary w-full !py-3.5 font-bold shadow-[0_8px_30px_rgba(163,255,18,0.3)] mt-2">
+          <i data-lucide="user-plus" class="w-4 h-4 stroke-[2.5]"></i>
+          <span>Create ${isStaff ? 'Staff' : 'Student'} Account</span>
+        </button>
+      </form>
+    `;
+  }
+
+  function renderSupabaseConfigPanel(isSupa, supaUrl, supaKey) {
+    return `
+      <div class="bg-card rounded-3xl p-6 sm:p-8 border border-white/10 backdrop-blur-xl">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-5 border-b border-white/10">
+          <div class="flex items-center gap-3">
+            <span class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0">
+              <i data-lucide="database" class="w-5 h-5"></i>
+            </span>
+            <div>
+              <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                Supabase Cloud Database
+                <span class="text-xs px-2.5 py-0.5 rounded-full font-mono ${isSupa ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'}">
+                  ${isSupa ? 'Connected' : 'Offline Mode'}
+                </span>
+              </h3>
+              <p class="text-xs text-gray-400">Connect a real Supabase backend or run with built-in IndexedDB offline storage.</p>
+            </div>
+          </div>
+        </div>
+
+        <form id="supa-config-form" data-submit="supa-config-submit" class="space-y-4">
+          <div>
+            <label for="supa-url" class="block text-xs uppercase font-mono text-gray-400 mb-1.5 font-semibold">Supabase Project URL</label>
+            <input id="supa-url" type="url" class="field font-mono text-sm" placeholder="https://your-project-ref.supabase.co" value="${esc(supaUrl)}">
+          </div>
+
+          <div>
+            <label for="supa-key" class="block text-xs uppercase font-mono text-gray-400 mb-1.5 font-semibold">Supabase Public Anon API Key</label>
+            <input id="supa-key" type="password" class="field font-mono text-sm" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." value="${esc(supaKey)}">
+          </div>
+
+          <div id="supa-msg" role="status" aria-live="polite" class="hidden text-sm p-3 rounded-xl"></div>
+
+          <div class="flex flex-wrap items-center gap-3 pt-2">
+            <button type="submit" class="btn-primary !py-2.5 !px-5 text-sm font-semibold">
+              <i data-lucide="save" class="w-4 h-4"></i>
+              <span>Save &amp; Connect</span>
+            </button>
+            <button type="button" data-action="test-supa" class="btn-ghost !py-2.5 !px-4 text-sm font-semibold">
+              <i data-lucide="activity" class="w-4 h-4"></i>
+              <span>Test Connection</span>
+            </button>
+            ${isSupa ? `
+              <button type="button" data-action="clear-supa" class="btn-ghost !py-2.5 !px-4 text-sm text-red-400 hover:!text-red-300 hover:!border-red-400/50">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                <span>Disconnect</span>
+              </button>
+            ` : ''}
+          </div>
+        </form>
+
+        <!-- Setup Instructions & Copyable Schema -->
+        <details class="mt-6 pt-5 border-t border-white/10 text-left group">
+          <summary class="cursor-pointer text-xs font-mono text-[#a3ff12] uppercase tracking-wider flex items-center justify-between select-none py-1">
+            <span class="flex items-center gap-2">
+              <i data-lucide="code" class="w-4 h-4"></i>
+              // Instant Supabase SQL Table Schema &amp; RLS Policies
+            </span>
+            <span class="text-xs text-gray-400 font-sans group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <div class="mt-4 space-y-3 text-xs text-gray-300">
+            <p>Paste this SQL snippet into your Supabase project's <strong>SQL Editor</strong> and click <strong>Run</strong> to set up the helpdesk table:</p>
+            <pre class="bg-black/60 border border-white/10 rounded-2xl p-4 text-[11px] font-mono text-[#a3ff12] overflow-x-auto leading-relaxed select-all"><code>${esc(SQL_SCHEMA_SNIPPET)}</code></pre>
+            <button type="button" data-action="copy-schema" class="btn-ghost !py-2 !px-4 text-xs font-semibold">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>Copy SQL to Clipboard</span>
+            </button>
+          </div>
+        </details>
+      </div>
+    `;
+  }
+
+  function pageLogin(params) {
+    const user = getAuthUser();
+    const isSupa = isSupabaseConfigured();
+    const supaUrl = localStorage.getItem(SUPA_URL_KEY) || '';
+    const supaKey = localStorage.getItem(SUPA_KEY_KEY) || '';
+
+    if (user) {
+      const userTickets = tickets.filter(t => (t.contactName && t.contactName.toLowerCase() === user.name.toLowerCase()));
+      const openUserTickets = userTickets.filter(t => t.status !== 'Resolved').length;
+      const isStaffRole = user.role === 'staff';
+      const initials = (user.name || 'User')
+        .split(' ')
+        .map(w => w[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
+
+      return `
+        <div class="max-w-4xl mx-auto space-y-8">
+          ${heading('Campus Identity Account', 'Manage your student profile, view ticket history, and monitor Supabase cloud sync status.', '', 'USER PROFILE & BACKEND')}
+
+          <!-- User Profile Card -->
+          <div class="bg-card rounded-3xl p-6 sm:p-10 border border-white/10 backdrop-blur-xl relative overflow-hidden">
+            <div class="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-[#a3ff12]/5 blur-3xl pointer-events-none"></div>
+
+            <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 relative z-10">
+              <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-gradient-to-br from-[#a3ff12]/20 to-white/5 border-2 border-[#a3ff12]/40 flex items-center justify-center font-extrabold text-2xl sm:text-3xl text-[#a3ff12] shadow-[0_0_30px_rgba(163,255,18,0.25)] flex-shrink-0">
+                ${initials}
+              </div>
+
+              <div class="flex-1 text-center sm:text-left">
+                <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 mb-2">
+                  <h2 class="text-2xl sm:text-3xl font-extrabold text-white">${sanitize(user.name)}</h2>
+                  <span class="chip ${isStaffRole ? 'bg-amber-400/20 text-amber-300 border-amber-400/40' : 'bg-[#a3ff12]/15 text-[#a3ff12] border-[#a3ff12]/30'}">
+                    <i data-lucide="${isStaffRole ? 'shield-check' : 'graduation-cap'}" class="w-3.5 h-3.5"></i>
+                    ${isStaffRole ? 'Campus Staff Lead' : 'Student Account'}
+                  </span>
+                </div>
+
+                <p class="text-gray-300 text-sm font-mono flex items-center justify-center sm:justify-start gap-2 mb-3">
+                  <i data-lucide="mail" class="w-4 h-4 text-[#a3ff12]"></i>
+                  <span>${sanitize(user.email)}</span>
+                </p>
+
+                <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs">
+                  <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 flex items-center gap-1.5">
+                    <i data-lucide="building-2" class="w-3.5 h-3.5 text-[#a3ff12]"></i>
+                    ${sanitize(user.department || (isStaffRole ? 'Campus Facilities & IT' : 'Residential Hostels'))}
+                  </span>
+                  <span class="px-3 py-1 rounded-full ${isSupa ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'} flex items-center gap-1.5 font-mono">
+                    <span class="w-1.5 h-1.5 rounded-full ${isSupa ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}"></span>
+                    ${isSupa ? 'Supabase Auth & Cloud Database' : 'Local Sandbox Auth'}
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex flex-col gap-2 w-full sm:w-auto">
+                <button type="button" data-action="auth-logout" class="btn-ghost !border-red-500/30 text-red-400 hover:!border-red-400 hover:!text-red-300 hover:!bg-red-500/10 !py-2.5 !px-5 text-sm font-semibold justify-center">
+                  <i data-lucide="log-out" class="w-4 h-4"></i>
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Profile Metric Highlights -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-8 pt-6 border-t border-white/10">
+              <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/5 text-center">
+                <span class="text-xs uppercase font-mono text-gray-400 tracking-wider block mb-1">My Reports</span>
+                <span class="text-2xl font-extrabold text-white">${userTickets.length}</span>
+              </div>
+              <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/5 text-center">
+                <span class="text-xs uppercase font-mono text-gray-400 tracking-wider block mb-1">Active Issues</span>
+                <span class="text-2xl font-extrabold text-[#a3ff12]">${openUserTickets}</span>
+              </div>
+              <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/5 text-center">
+                <span class="text-xs uppercase font-mono text-gray-400 tracking-wider block mb-1">Campus Total</span>
+                <span class="text-2xl font-extrabold text-white">${tickets.length}</span>
+              </div>
+              <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/5 text-center">
+                <span class="text-xs uppercase font-mono text-gray-400 tracking-wider block mb-1">Resolved</span>
+                <span class="text-2xl font-extrabold text-emerald-400">${tickets.filter(t => t.status === 'Resolved').length}</span>
+              </div>
+            </div>
+
+            <!-- Quick Navigation CTAs -->
+            <div class="flex flex-wrap gap-3 mt-6 pt-4 border-t border-white/10">
+              ${isStaffRole ? `
+                <a href="#/staff" class="btn-primary flex-1 sm:flex-initial">
+                  <i data-lucide="shield-check" class="w-4 h-4"></i>
+                  <span>Open Staff Portal</span>
+                </a>
+                <a href="#/requests" class="btn-ghost flex-1 sm:flex-initial">
+                  <i data-lucide="list-checks" class="w-4 h-4"></i>
+                  <span>All Campus Tickets</span>
+                </a>
+              ` : `
+                <a href="#/report" class="btn-primary flex-1 sm:flex-initial">
+                  <i data-lucide="plus" class="w-4 h-4"></i>
+                  <span>Report New Campus Issue</span>
+                </a>
+                <a href="#/requests" class="btn-ghost flex-1 sm:flex-initial">
+                  <i data-lucide="list-checks" class="w-4 h-4"></i>
+                  <span>Track Campus Requests</span>
+                </a>
+              `}
+            </div>
+          </div>
+
+          <!-- Supabase Status & Config Panel -->
+          ${renderSupabaseConfigPanel(isSupa, supaUrl, supaKey)}
+        </div>
+      `;
+    }
+
+    // User is logged out: show sign-in/register view with role tabs + demo quick logins + Supabase drawer
+    return `
+      <div class="max-w-xl mx-auto space-y-8">
+        ${heading('Campus Identity', 'Sign in to your Unidesk account with Supabase or test instantly with demo accounts.', '', 'LOGIN & REGISTRATION')}
+
+        <!-- Fast 1-Click Demo Login Shortcuts -->
+        <div class="bg-card rounded-3xl p-5 border border-white/10 backdrop-blur-xl">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-2 h-2 rounded-full bg-[#a3ff12] animate-ping"></span>
+            <span class="font-mono text-xs uppercase tracking-wider text-[#a3ff12] font-semibold">// 1-Click Instant Demo Login</span>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <button type="button" data-action="demo-login" data-role="student"
+              class="p-3.5 rounded-2xl bg-white/[0.04] hover:bg-[#a3ff12]/10 border border-white/10 hover:border-[#a3ff12]/40 transition-all flex items-center gap-3 text-left group">
+              <span class="w-10 h-10 rounded-xl bg-[#a3ff12]/15 text-[#a3ff12] flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
+                <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+              </span>
+              <div class="min-w-0">
+                <div class="text-sm font-bold text-white group-hover:text-[#a3ff12] transition-colors truncate">Demo Student</div>
+                <div class="text-xs text-gray-400 truncate">Rohan Verma · Aryabhatta Hostel</div>
+              </div>
+            </button>
+            <button type="button" data-action="demo-login" data-role="staff"
+              class="p-3.5 rounded-2xl bg-white/[0.04] hover:bg-amber-400/10 border border-white/10 hover:border-amber-400/40 transition-all flex items-center gap-3 text-left group">
+              <span class="w-10 h-10 rounded-xl bg-amber-400/15 text-amber-300 flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
+                <i data-lucide="shield-check" class="w-5 h-5"></i>
+              </span>
+              <div class="min-w-0">
+                <div class="text-sm font-bold text-white group-hover:text-amber-300 transition-colors truncate">Demo Staff Lead</div>
+                <div class="text-xs text-gray-400 truncate">Rajesh Kumar · Senior IT Lead</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Main Auth Form Container -->
+        <div class="bg-card rounded-3xl p-6 sm:p-8 border border-white/10 backdrop-blur-xl shadow-2xl relative">
+          <!-- Role Selector Tabs -->
+          <div class="flex p-1.5 rounded-2xl bg-black/40 border border-white/10 mb-6">
+            <button type="button" data-action="set-auth-role" data-role="student"
+              class="flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${ui.authRole === 'student' ? 'bg-[#a3ff12] text-[#0c0f0a] shadow-[0_0_15px_rgba(163,255,18,0.4)]' : 'text-gray-400 hover:text-white'}">
+              <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+              <span>Student Portal</span>
+            </button>
+            <button type="button" data-action="set-auth-role" data-role="staff"
+              class="flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${ui.authRole === 'staff' ? 'bg-[#a3ff12] text-[#0c0f0a] shadow-[0_0_15px_rgba(163,255,18,0.4)]' : 'text-gray-400 hover:text-white'}">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+              <span>Campus Staff &amp; Ops</span>
+            </button>
+          </div>
+
+          <!-- Auth Mode Toggle (Sign In vs Register) -->
+          <div class="flex items-center justify-between pb-4 mb-6 border-b border-white/10">
+            <div class="flex gap-4">
+              <button type="button" data-action="set-auth-tab" data-tab="signin"
+                class="text-base font-bold pb-1 transition-colors relative ${ui.authTab === 'signin' ? 'text-white border-b-2 border-[#a3ff12]' : 'text-gray-400 hover:text-gray-200'}">
+                Sign In
+              </button>
+              <button type="button" data-action="set-auth-tab" data-tab="signup"
+                class="text-base font-bold pb-1 transition-colors relative ${ui.authTab === 'signup' ? 'text-white border-b-2 border-[#a3ff12]' : 'text-gray-400 hover:text-gray-200'}">
+                Create Account
+              </button>
+            </div>
+            <span class="text-xs font-mono text-gray-400">
+              ${isSupa ? '<span class="text-emerald-400 flex items-center gap-1"><i data-lucide="database" class="w-3.5 h-3.5"></i>Supabase Cloud</span>' : '<span class="text-amber-400/90 flex items-center gap-1"><i data-lucide="hard-drive" class="w-3.5 h-3.5"></i>Local Mode</span>'}
+            </span>
+          </div>
+
+          ${ui.authTab === 'signin' ? renderSignInForm(isSupa) : renderSignUpForm(isSupa)}
+        </div>
+
+        <!-- Supabase Backend Configuration Drawer -->
+        ${renderSupabaseConfigPanel(isSupa, supaUrl, supaKey)}
+      </div>
+    `;
+  }
+
   /* ---------- zen scroll-linked animation ---------- */
   let zenScrollCleanup = null;
   function initZenScrollAnimation() {
@@ -1499,6 +2060,7 @@ const App = (() => {
     else if (path === '/help') html = `<div class="zen-page-wrap">${pageHelp()}</div>`;
     else if (path === '/directory') html = `<div class="zen-page-wrap">${pageDirectory()}</div>`;
     else if (path === '/staff') html = `<div class="zen-page-wrap">${pageStaff()}</div>`;
+    else if (path === '/login') html = `<div class="zen-page-wrap">${pageLogin(params)}</div>`;
     else html = `<div class="zen-page-wrap text-center py-24"><div class="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-[#a3ff12] mb-3 font-semibold">// 404 ERROR</div><h1 class="text-4xl font-extrabold text-white">Page not found</h1><p class="text-gray-400 mt-2">The route you requested doesn't exist.</p><a href="#/" class="btn-primary mt-6 inline-flex">Go Home</a></div>`;
     
     const appEl = $('app');
@@ -1628,6 +2190,7 @@ const App = (() => {
       t.assignee = assignee;
       t.timeline.push({ status: t.status, at: new Date().toISOString(), note: `Assigned to ${assignee}` });
       save();
+      syncTicketToSupabase(t, { assignee, timeline: t.timeline });
       playTone('click');
       toast(`Assigned ${id} to ${assignee.split(' ')[0]}`);
 
@@ -1654,12 +2217,14 @@ const App = (() => {
       const authorEl = $('c-author');
       const text = textEl ? textEl.value.trim() : '';
       if (!text) return;
-      const author = (authorEl && authorEl.value.trim()) || (isStaff() ? 'Campus Staff' : 'Student');
+      const authUser = getAuthUser();
+      const author = (authorEl && authorEl.value.trim()) || (authUser && authUser.name) || (isStaff() ? 'Campus Staff' : 'Student');
       const role = isStaff() ? 'staff' : 'student';
       const newComment = { author: sanitize(author), role, text: sanitize(text), at: new Date().toISOString() };
       if (!Array.isArray(t.comments)) t.comments = [];
       t.comments.push(newComment);
       save();
+      syncTicketToSupabase(t, { comments: t.comments });
       localStorage.setItem('unidesk_name', author);
       playTone('pop');
       toast('Clarification posted');
@@ -1784,6 +2349,7 @@ const App = (() => {
       };
       tickets.unshift(t);
       save();
+      syncTicketToSupabase(t);
       localStorage.setItem('unidesk_name', t.contactName);
       ui.draftCat = ''; ui.draftPrio = 'Medium'; ui.draftImage = null;
       playTone('success');
@@ -1827,6 +2393,7 @@ const App = (() => {
       if (!t) return;
       t.upvotes++;
       save();
+      syncTicketToSupabase(t, { upvotes: t.upvotes });
       playTone('pop');
       toast('Thanks! Marked as affected');
 
@@ -1857,6 +2424,7 @@ const App = (() => {
       t.status = status;
       t.timeline.push({ status, at: new Date().toISOString(), note });
       save();
+      syncTicketToSupabase(t, { status, timeline: t.timeline });
       if (status === 'Resolved') {
         playTone('success');
         launchConfetti();
@@ -2012,6 +2580,307 @@ const App = (() => {
       toast(`Added ${added} demo ticket${added > 1 ? 's' : ''}`);
       render();
     },
+    async signInUser(e) {
+      e.preventDefault();
+      const email = $('auth-email') ? $('auth-email').value.trim() : '';
+      const password = $('auth-password') ? $('auth-password').value : '';
+      const remember = $('auth-remember') ? $('auth-remember').checked : true;
+      const errEl = $('auth-err');
+      const btn = $('auth-submit-btn');
+
+      if (!email || !password) {
+        if (errEl) {
+          errEl.textContent = 'Please enter both email and password.';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      const sb = getSupabase();
+      if (sb) {
+        if (btn) btn.disabled = true;
+        try {
+          const { data, error } = await sb.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+          const userMeta = data.user?.user_metadata || {};
+          const name = userMeta.name || email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+          const role = userMeta.role || ui.authRole;
+          const dept = userMeta.department || (role === 'staff' ? 'Campus IT Support' : 'Aryabhatta Block');
+
+          setAuthUser({
+            id: data.user.id,
+            name,
+            email: data.user.email,
+            role,
+            department: dept
+          }, remember);
+
+          playTone('success');
+          toast(`Welcome back, ${name}!`);
+          render();
+          return;
+        } catch (err) {
+          if (errEl) {
+            errEl.textContent = err.message || 'Invalid email or password.';
+            errEl.classList.remove('hidden');
+          }
+          if (btn) btn.disabled = false;
+          return;
+        }
+      }
+
+      // Local sandbox auth fallback
+      const name = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      const role = ui.authRole;
+      const dept = role === 'staff' ? 'Campus IT Operations' : 'Aryabhatta Hostel';
+
+      setAuthUser({
+        id: 'local_' + Date.now(),
+        name,
+        email,
+        role,
+        department: dept
+      }, remember);
+
+      playTone('success');
+      toast(`Signed in as ${name} (Local Mode)`);
+      render();
+    },
+
+    async signUpUser(e) {
+      e.preventDefault();
+      const name = $('reg-name') ? $('reg-name').value.trim() : '';
+      const email = $('reg-email') ? $('reg-email').value.trim() : '';
+      const dept = $('reg-dept') ? $('reg-dept').value.trim() : '';
+      const password = $('reg-password') ? $('reg-password').value : '';
+      const errEl = $('reg-err');
+      const btn = $('reg-submit-btn');
+
+      if (!name || !email || !password) {
+        if (errEl) {
+          errEl.textContent = 'Please fill out all required fields.';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+      if (password.length < 6) {
+        if (errEl) {
+          errEl.textContent = 'Password must be at least 6 characters.';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      const role = ui.authRole;
+      const finalDept = dept || (role === 'staff' ? 'Campus Facilities & IT' : 'Residential Hostels');
+
+      const sb = getSupabase();
+      if (sb) {
+        if (btn) btn.disabled = true;
+        try {
+          const { data, error } = await sb.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                name,
+                role,
+                department: finalDept
+              }
+            }
+          });
+          if (error) throw error;
+
+          if (data.session) {
+            setAuthUser({
+              id: data.user.id,
+              name,
+              email,
+              role,
+              department: finalDept
+            }, true);
+            playTone('success');
+            toast('Account created and signed in via Supabase!');
+            render();
+          } else {
+            playTone('success');
+            toast('Account created! Please check your email to verify.');
+            ui.authTab = 'signin';
+            render();
+          }
+          return;
+        } catch (err) {
+          if (errEl) {
+            errEl.textContent = err.message || 'Unable to create account.';
+            errEl.classList.remove('hidden');
+          }
+          if (btn) btn.disabled = false;
+          return;
+        }
+      }
+
+      // Local sandbox registration fallback
+      setAuthUser({
+        id: 'local_' + Date.now(),
+        name,
+        email,
+        role,
+        department: finalDept
+      }, true);
+
+      playTone('success');
+      toast('Account created successfully (Local Mode)!');
+      render();
+    },
+
+    authLogout() {
+      clearAuthSession();
+      playTone('click');
+      toast('Signed out successfully');
+      render();
+    },
+
+    quickDemoLogin(role) {
+      const isStaff = role === 'staff';
+      const demoUser = isStaff ? {
+        id: 'demo_staff_lead',
+        name: 'Rajesh Kumar',
+        email: 'rajesh.kumar@unidesk.edu',
+        role: 'staff',
+        department: 'Senior Network Lead, IT Support'
+      } : {
+        id: 'demo_student_rohan',
+        name: 'Rohan Verma',
+        email: 'rohan.verma@campus.edu',
+        role: 'student',
+        department: 'Aryabhatta Hostel, Room 214'
+      };
+
+      setAuthUser(demoUser, true);
+      playTone('success');
+      toast(`Signed in as ${demoUser.name} (${isStaff ? 'Staff Lead' : 'Student'})`);
+      render();
+    },
+
+    setAuthTab(tab) {
+      ui.authTab = tab;
+      playTone('click');
+      render();
+    },
+
+    setAuthRole(role) {
+      ui.authRole = role;
+      playTone('click');
+      render();
+    },
+
+    togglePasswordVisibility(targetId) {
+      const inp = $(targetId);
+      if (!inp) return;
+      const isPassword = inp.type === 'password';
+      inp.type = isPassword ? 'text' : 'password';
+      const btn = document.querySelector(`[data-action="toggle-pass-vis"][data-target="${targetId}"]`);
+      if (btn) {
+        btn.innerHTML = `<i data-lucide="${isPassword ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>`;
+        lucide.createIcons();
+      }
+    },
+
+    async saveSupabaseConfig(e) {
+      e.preventDefault();
+      const urlInput = $('supa-url');
+      const keyInput = $('supa-key');
+      const url = urlInput ? urlInput.value.trim().replace(/\/+$/, '') : '';
+      const key = keyInput ? keyInput.value.trim() : '';
+
+      if (!url || !key) {
+        toast('Please enter both Supabase URL and Anon Key');
+        return;
+      }
+
+      localStorage.setItem(SUPA_URL_KEY, url);
+      localStorage.setItem(SUPA_KEY_KEY, key);
+      supaClient = null;
+
+      playTone('success');
+      toast('Supabase configuration saved & connected!');
+      render();
+    },
+
+    async testSupabase() {
+      const msgEl = $('supa-msg');
+      const urlInput = $('supa-url');
+      const keyInput = $('supa-key');
+      const url = urlInput ? urlInput.value.trim().replace(/\/+$/, '') : (localStorage.getItem(SUPA_URL_KEY) || '');
+      const key = keyInput ? keyInput.value.trim() : (localStorage.getItem(SUPA_KEY_KEY) || '');
+
+      if (!url || !key) {
+        if (msgEl) {
+          msgEl.className = 'text-sm p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300';
+          msgEl.innerHTML = '<i data-lucide="alert-circle" class="w-4 h-4 inline mr-1.5"></i>Please enter both Supabase Project URL and Public Anon Key.';
+          msgEl.classList.remove('hidden');
+          lucide.createIcons();
+        }
+        return;
+      }
+
+      if (msgEl) {
+        msgEl.className = 'text-sm p-3 rounded-xl bg-white/5 border border-white/10 text-gray-300';
+        msgEl.innerHTML = '<i data-lucide="loader" class="w-4 h-4 inline mr-1.5 animate-spin"></i>Testing connection to Supabase cloud...';
+        msgEl.classList.remove('hidden');
+        lucide.createIcons();
+      }
+
+      try {
+        if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+          throw new Error('Supabase client library not ready. Check network.');
+        }
+        const tempClient = window.supabase.createClient(url, key);
+        const { data, error } = await tempClient.from('tickets').select('id').limit(1);
+
+        if (error) {
+          if (error.code === 'PGRST116' || error.message?.includes('relation "public.tickets" does not exist') || error.code === '42P01') {
+            msgEl.className = 'text-sm p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300';
+            msgEl.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline mr-1.5 text-emerald-400"></i>Supabase connection valid! Table <code>tickets</code> is not created yet. Use the SQL Schema below in your SQL Editor.';
+          } else {
+            msgEl.className = 'text-sm p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300';
+            msgEl.innerHTML = `<i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1.5"></i>Supabase returned an error: ${esc(error.message || error)}`;
+          }
+        } else {
+          msgEl.className = 'text-sm p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300';
+          msgEl.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4 inline mr-1.5 text-emerald-400"></i>Connected successfully! Supabase Cloud backend and <code>tickets</code> table are ready.';
+        }
+        lucide.createIcons();
+      } catch (err) {
+        if (msgEl) {
+          msgEl.className = 'text-sm p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300';
+          msgEl.innerHTML = `<i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1.5"></i>Connection failed: ${esc(err.message || err)}`;
+          msgEl.classList.remove('hidden');
+          lucide.createIcons();
+        }
+      }
+    },
+
+    clearSupabaseConfig() {
+      localStorage.removeItem(SUPA_URL_KEY);
+      localStorage.removeItem(SUPA_KEY_KEY);
+      supaClient = null;
+      playTone('click');
+      toast('Supabase disconnected. Switched to local mode.');
+      render();
+    },
+
+    copySqlSchema() {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(SQL_SCHEMA_SNIPPET).then(() => {
+          toast('Supabase SQL schema copied to clipboard!');
+        }).catch(() => {
+          toast('Select and copy the SQL code above.');
+        });
+      } else {
+        toast('Select and copy the SQL code above.');
+      }
+    },
     toggleTheme,
     applyTheme,
     getTheme: () => currentTheme,
@@ -2077,6 +2946,22 @@ const App = (() => {
       api.addDemoData();
     } else if (action === 'reset-demo') {
       api.resetData();
+    } else if (action === 'auth-logout') {
+      api.authLogout();
+    } else if (action === 'demo-login') {
+      api.quickDemoLogin(actionEl.dataset.role || 'student');
+    } else if (action === 'set-auth-tab') {
+      api.setAuthTab(actionEl.dataset.tab);
+    } else if (action === 'set-auth-role') {
+      api.setAuthRole(actionEl.dataset.role);
+    } else if (action === 'toggle-pass-vis') {
+      api.togglePasswordVisibility(actionEl.dataset.target);
+    } else if (action === 'test-supa') {
+      api.testSupabase();
+    } else if (action === 'clear-supa') {
+      api.clearSupabaseConfig();
+    } else if (action === 'copy-schema') {
+      api.copySqlSchema();
     }
   });
 
@@ -2116,6 +3001,12 @@ const App = (() => {
       api.addComment(id);
     } else if (type === 'staff-login-submit') {
       api.staffLogin(e);
+    } else if (type === 'signin-submit') {
+      api.signInUser(e);
+    } else if (type === 'signup-submit') {
+      api.signUpUser(e);
+    } else if (type === 'supa-config-submit') {
+      api.saveSupabaseConfig(e);
     }
   });
 
