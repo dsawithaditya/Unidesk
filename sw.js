@@ -1,5 +1,5 @@
 /* Unidesk Campus Helpdesk - Offline Service Worker (Network-First + Offline Cache Fallback) */
-const CACHE_NAME = 'unidesk-v4.0';
+const CACHE_NAME = 'unidesk-v6.0';
 const PRECACHE_ASSETS = [
   './',
   './index.html',

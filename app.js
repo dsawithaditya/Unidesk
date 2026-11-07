@@ -617,7 +617,28 @@ const App = (() => {
   function pageHome() {
     const c = counts();
     const recent = [...tickets].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 3);
-    const heroTiles = [['wifi', 'IT & Wi-Fi'], ['wrench', 'Facilities'], ['shield-alert', 'Safety']];
+    const heroQuickActions = [
+      {
+        cat: 'IT & Wi-Fi',
+        meta: 'Eduroam & Labs',
+        svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01" stroke-width="3"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></svg>`
+      },
+      {
+        cat: 'Facilities',
+        meta: 'Repairs & Power',
+        svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`
+      },
+      {
+        cat: 'Hostel & Mess',
+        meta: 'Rooms & Dining',
+        svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>`
+      },
+      {
+        cat: 'Safety',
+        meta: '24/7 Security',
+        svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>`
+      }
+    ];
     const stat = (label, val) => `<div class="zen-stat glass"><div class="zen-stat-v">${val}</div><div class="zen-stat-l">${label}</div></div>`;
     const features = [
       ['Report an issue', 'Submit a request in under a minute with category, location and priority.', 'square-pen', '#/report', 'Start a request'],
@@ -700,26 +721,47 @@ const App = (() => {
       <div class="zen-ribbon l"></div><div class="zen-ribbon r"></div>
       <div class="zen-orb" style="width:340px;height:340px;left:32%;top:58%"></div>
 
-      <div class="flex items-center justify-center gap-3 sm:gap-4 zen-rise" style="--d:.05s">
-        ${heroTiles.map(([i, n], idx) => `<a href="#/report?cat=${encodeURIComponent(n)}" class="zen-tile glass" style="animation-delay:${idx * 0.7}s" aria-label="${n}"><i data-lucide="${i}"></i></a>`).join('')}
+      <div class="zen-hero-content w-full flex flex-col items-center">
+        <div class="zen-hero-showcase zen-rise" style="--d:.05s">
+          <div class="zen-quick-dock" role="navigation" aria-label="Quick category report">
+            ${heroQuickActions.map(item => `
+              <a href="#/report?cat=${encodeURIComponent(item.cat)}" class="zen-quick-btn" aria-label="Report ${item.cat} issue">
+                <span class="zen-quick-orb" aria-hidden="true">${item.svg}</span>
+                <span class="zen-quick-text">
+                  <span class="zen-quick-title">${item.cat}</span>
+                  <span class="zen-quick-meta">${item.meta}</span>
+                </span>
+                <span class="zen-quick-arrow" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+                </span>
+              </a>
+            `).join('')}
+          </div>
+        </div>
+
+        <h1 class="zen-title mt-9 zen-rise" style="--d:.15s"><span class="lime-t">Issues</span> solved fast<span class="lime-t">.</span></h1>
+        <p class="zen-sub mt-6 zen-rise" style="--d:.28s">One helpdesk for Wi-Fi, repairs, hostel and safety issues. Report, track and resolve campus problems with clarity, speed and impact.</p>
+
+        <div class="flex flex-wrap items-center justify-center gap-3 mt-9 zen-rise" style="--d:.4s">
+          <a href="#/report" class="zen-cta">Report an issue<span class="arrow"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span></a>
+          <a href="#/requests" class="zen-cta zen-cta-glass glass">Track requests<span class="arrow"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span></a>
+        </div>
+
+        <form id="track-form" data-submit="track-submit" class="zen-track glass mt-6 zen-rise" style="--d:.5s">
+          <input id="track-id" placeholder="Have a ticket ID? e.g. CC-101" aria-label="Ticket ID" autocomplete="off">
+          <button type="submit">Track</button>
+        </form>
+        <p id="track-err" role="alert" aria-live="polite" class="hidden text-red-300 text-sm mt-2">No ticket found with that ID.</p>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-4xl mt-14 zen-rise" style="--d:.6s">
+          ${stat('Total requests', c.total)}${stat('Open', c.open)}${stat('In progress', c.prog)}${stat('Resolved', c.done)}
+        </div>
       </div>
 
-      <h1 class="zen-title mt-9 zen-rise" style="--d:.15s"><span class="lime-t">Issues</span> solved fast<span class="lime-t">.</span></h1>
-      <p class="zen-sub mt-6 zen-rise" style="--d:.28s">One helpdesk for Wi-Fi, repairs, hostel and safety issues. Report, track and resolve campus problems with clarity, speed and impact.</p>
-
-      <div class="flex flex-wrap items-center justify-center gap-3 mt-9 zen-rise" style="--d:.4s">
-        <a href="#/report" class="zen-cta">Report an issue<span class="arrow"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span></a>
-        <a href="#/requests" class="zen-cta zen-cta-glass glass">Track requests<span class="arrow"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span></a>
-      </div>
-
-      <form id="track-form" data-submit="track-submit" class="zen-track glass mt-6 zen-rise" style="--d:.5s">
-        <input id="track-id" placeholder="Have a ticket ID? e.g. CC-101" aria-label="Ticket ID" autocomplete="off">
-        <button type="submit">Track</button>
-      </form>
-      <p id="track-err" role="alert" aria-live="polite" class="hidden text-red-300 text-sm mt-2">No ticket found with that ID.</p>
-
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-4xl mt-14 zen-rise" style="--d:.6s">
-        ${stat('Total requests', c.total)}${stat('Open', c.open)}${stat('In progress', c.prog)}${stat('Resolved', c.done)}
+      <!-- Seamless Transition Veil & Optical Horizon Seam -->
+      <div class="zen-hero-seam" aria-hidden="true">
+        <div class="zen-hero-seam-glow"></div>
+        <div class="zen-hero-seam-line"></div>
       </div>
     </section>
 
@@ -1330,6 +1372,26 @@ const App = (() => {
       const totalScrollDistance = focusDistance + vh;
       if (totalScrollDistance <= 0) return;
 
+      // Merge Hero and About sections with scroll parallax & optical blur
+      const hero = document.querySelector('.zen-hero');
+      const heroContent = document.querySelector('.zen-hero-content');
+      const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (hero && heroContent && !prefersReduced) {
+        const sy = window.scrollY || window.pageYOffset || 0;
+        const heroH = hero.offsetHeight || vh;
+        const heroProgress = clamp(sy / (heroH * 0.75));
+        if (heroProgress > 0) {
+          const ep = heroProgress * heroProgress;
+          heroContent.style.transform = `translateY(${(sy * 0.22).toFixed(1)}px) scale(${(1 - 0.045 * ep).toFixed(4)})`;
+          heroContent.style.opacity = (1 - 0.8 * ep).toFixed(3);
+          heroContent.style.filter = `blur(${(ep * 6).toFixed(1)}px)`;
+        } else {
+          heroContent.style.transform = '';
+          heroContent.style.opacity = '';
+          heroContent.style.filter = '';
+        }
+      }
+
       const scrolledInTrack = -trackRect.top;
       targetProgress = clamp(scrolledInTrack / totalScrollDistance);
 
@@ -1405,6 +1467,12 @@ const App = (() => {
       }
       if (track) {
         track.style.minHeight = '';
+      }
+      const hc = document.querySelector('.zen-hero-content');
+      if (hc) {
+        hc.style.transform = '';
+        hc.style.opacity = '';
+        hc.style.filter = '';
       }
       words.forEach(w => {
         w.style.filter = '';

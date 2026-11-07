@@ -1,5 +1,8 @@
 html {
       scroll-behavior: smooth;
+      overflow-x: hidden;
+      overflow-x: clip;
+      max-width: 100vw;
     }
 
     body {
@@ -13,6 +16,9 @@ html {
       background-size: 100% 100%, 56px 56px, 56px 56px;
       background-attachment: fixed;
       min-height: 100vh;
+      overflow-x: hidden;
+      overflow-x: clip;
+      max-width: 100vw;
     }
 
     .page {
@@ -215,13 +221,26 @@ html {
     }
 
     ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
+      width: 6px;
+      height: 0px;
+    }
+
+    ::-webkit-scrollbar:horizontal {
+      display: none;
+      height: 0;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #080a07;
     }
 
     ::-webkit-scrollbar-thumb {
+      background: rgba(163, 255, 18, 0.45);
+      border-radius: 9999px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
       background: #a3ff12;
-      border-radius: 4px;
     }
 
     @media (max-width: 767px) {
@@ -253,7 +272,7 @@ html {
       overflow: hidden;
       background: #080a07;
       color: #fff;
-      padding: 120px 20px 72px;
+      padding: 68px 20px 72px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -266,6 +285,8 @@ html {
       inset: 0;
       z-index: -3;
       background: radial-gradient(55% 45% at 50% 0%, rgba(163, 255, 18, .14), transparent 70%), radial-gradient(40% 55% at 0% 65%, rgba(80, 150, 20, .38), transparent 70%), radial-gradient(40% 55% at 100% 55%, rgba(80, 150, 20, .38), transparent 70%);
+      -webkit-mask-image: linear-gradient(to bottom, black 0%, black 70%, transparent 100%);
+      mask-image: linear-gradient(to bottom, black 0%, black 70%, transparent 100%);
     }
 
     .zen-hero::after {
@@ -275,8 +296,8 @@ html {
       z-index: -2;
       background-image: linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px);
       background-size: 64px 64px;
-      -webkit-mask-image: radial-gradient(ellipse at center, #000 25%, transparent 75%);
-      mask-image: radial-gradient(ellipse at center, #000 25%, transparent 75%);
+      -webkit-mask-image: radial-gradient(ellipse at center, #000 25%, transparent 75%), linear-gradient(to bottom, black 65%, transparent 100%);
+      mask-image: radial-gradient(ellipse at center, #000 25%, transparent 75%), linear-gradient(to bottom, black 65%, transparent 100%);
     }
 
     .zen-ribbon {
@@ -288,6 +309,8 @@ html {
       border-radius: 48% 52% 55% 45% / 38% 40% 60% 62%;
       translate: calc(var(--mx, 0) * 40px) calc(var(--my, 0) * 30px);
       transition: translate .4s ease-out;
+      -webkit-mask-image: linear-gradient(to bottom, black 0%, black 65%, transparent 92%);
+      mask-image: linear-gradient(to bottom, black 0%, black 65%, transparent 92%);
     }
 
     .zen-ribbon.l {
@@ -366,62 +389,158 @@ html {
       }
     }
 
-    .zen-tile {
-      width: clamp(92px, 13vw, 132px);
-      aspect-ratio: 1;
-      border-radius: 22px;
+    /* ============ HERO QUICK-DISPATCH COMMAND DOCK & SEAM ============ */
+    .zen-hero-content {
       position: relative;
+      z-index: 2;
+      width: 100%;
+      will-change: transform, opacity, filter;
+      transform-origin: center top;
+    }
+
+    .zen-hero-showcase {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 960px;
+    }
+
+    .zen-quick-dock {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 8px;
+      border-radius: 9999px;
+      background: rgba(10, 15, 8, 0.72);
+      -webkit-backdrop-filter: blur(22px) saturate(160%);
+      backdrop-filter: blur(22px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 45px rgba(163, 255, 18, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+
+    @media (max-width: 767px) {
+      .zen-quick-dock {
+        border-radius: 26px;
+        padding: 10px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+      }
+    }
+
+    .zen-quick-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px 8px 8px;
+      border-radius: 9999px;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      text-decoration: none;
+      text-align: left;
+      transition: transform 0.28s cubic-bezier(.2, .8, .2, 1), border-color 0.28s, background 0.28s, box-shadow 0.28s;
       overflow: hidden;
+    }
+
+    .zen-quick-btn:hover {
+      transform: translateY(-3px);
+      background: linear-gradient(145deg, rgba(163, 255, 18, 0.16), rgba(18, 28, 12, 0.85));
+      border-color: rgba(163, 255, 18, 0.55);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5), 0 0 26px rgba(163, 255, 18, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    }
+
+    .zen-quick-orb {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 25%, rgba(163, 255, 18, 0.28), rgba(163, 255, 18, 0.08));
+      border: 1px solid rgba(163, 255, 18, 0.35);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 16px rgba(163, 255, 18, 0.15);
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: transform .35s cubic-bezier(.2, .8, .2, 1);
-      animation: tileFloat 6s ease-in-out infinite;
+      color: #a3ff12;
+      flex-shrink: 0;
+      transition: transform 0.28s cubic-bezier(.2, .8, .2, 1), background 0.28s, color 0.28s, box-shadow 0.28s;
     }
 
-    .zen-tile::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(160deg, rgba(163, 255, 18, .6), rgba(20, 40, 8, .25) 60%, transparent);
+    .zen-quick-orb svg {
+      width: 20px;
+      height: 20px;
+      stroke-width: 2;
+      transition: transform 0.28s cubic-bezier(.2, .8, .2, 1);
     }
 
-    .zen-tile::after {
-      content: '';
-      position: absolute;
-      width: 150%;
-      height: 32%;
-      background: #080a07;
-      transform: rotate(-38deg);
-      left: -25%;
-      top: 46%;
-      opacity: .85;
+    .zen-quick-btn:hover .zen-quick-orb {
+      background: linear-gradient(135deg, #d6ff63, #a3ff12);
+      color: #0c0f0a;
+      border-color: #e4ff8c;
+      transform: scale(1.06) rotate(-4deg);
+      box-shadow: 0 0 22px rgba(163, 255, 18, 0.55);
     }
 
-    .zen-tile svg {
-      position: relative;
-      z-index: 1;
-      width: 40%;
-      height: 40%;
-      color: #eaffc2;
-      stroke-width: 1.6;
-      transform: translateY(-14%);
+    .zen-quick-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.15;
+      padding-right: 2px;
     }
 
-    .zen-tile:hover {
-      transform: translateY(-8px) rotate(-3deg);
+    .zen-quick-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
     }
 
-    @keyframes tileFloat {
+    .zen-quick-meta {
+      font-size: 10.5px;
+      font-family: monospace;
+      color: #a1a89c;
+      margin-top: 2px;
+      white-space: nowrap;
+      transition: color 0.25s;
+    }
 
-      0%,
-      100% {
-        translate: 0 0;
-      }
+    .zen-quick-btn:hover .zen-quick-meta {
+      color: #d6ff63;
+    }
 
-      50% {
-        translate: 0 -8px;
-      }
+    .zen-quick-arrow {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #a1a89c;
+      flex-shrink: 0;
+      transition: all 0.28s cubic-bezier(.2, .8, .2, 1);
+    }
+
+    .zen-quick-arrow svg {
+      width: 13px;
+      height: 13px;
+      stroke-width: 2.4;
+      transition: transform 0.28s cubic-bezier(.2, .8, .2, 1);
+    }
+
+    .zen-quick-btn:hover .zen-quick-arrow {
+      background: #a3ff12;
+      border-color: #a3ff12;
+      color: #0c0f0a;
+    }
+
+    .zen-quick-btn:hover .zen-quick-arrow svg {
+      transform: translate(1.5px, -1.5px);
     }
 
     .zen-title {
@@ -562,10 +681,47 @@ html {
       animation-delay: var(--d, 0s);
     }
 
+    /* ============ SEAMLESS HERO-TO-CAPABILITIES MERGE ============ */
+    .zen-hero-seam {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 220px;
+      pointer-events: none;
+      z-index: 8;
+      background: linear-gradient(to bottom, transparent 0%, rgba(8, 10, 7, 0.45) 35%, rgba(8, 10, 7, 0.9) 78%, #080a07 100%);
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 65%);
+      mask-image: linear-gradient(to bottom, transparent 0%, black 65%);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .zen-hero-seam-glow {
+      position: absolute;
+      bottom: -15px;
+      left: 8%;
+      right: 8%;
+      height: 75px;
+      background: radial-gradient(ellipse at center, rgba(163, 255, 18, 0.35) 0%, transparent 70%);
+      filter: blur(28px);
+      pointer-events: none;
+    }
+
+    .zen-hero-seam-line {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(163, 255, 18, 0.08) 15%, rgba(163, 255, 18, 0.45) 50%, rgba(163, 255, 18, 0.08) 85%, transparent 100%);
+      box-shadow: 0 0 18px rgba(163, 255, 18, 0.45);
+    }
+
     /* ============ LIGHT SERVICES SECTION (HOME) ============ */
     .zen-light {
       position: relative;
-      overflow: visible;
+      overflow-x: clip;
       color: #0c0f0a;
       background-color: #fcfff3;
       background-image: linear-gradient(rgba(163, 255, 18, .17) 1px, transparent 1px), linear-gradient(90deg, rgba(163, 255, 18, .17) 1px, transparent 1px);
@@ -1449,24 +1605,60 @@ html {
       background: #84cc16;
     }
 
-    /* Crisp hero floating badges with light glass aesthetics */
-    body.light-mode .zen-tile {
-      background: linear-gradient(145deg, #ffffff, #f4fbf0) !important;
-      border: 1px solid rgba(132, 204, 22, 0.35) !important;
-      box-shadow: 0 10px 28px rgba(101, 163, 13, 0.18), 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+    /* Crisp hero floating quick-dispatch dock in light mode */
+    body.light-mode .zen-quick-dock {
+      background: rgba(255, 255, 255, 0.85);
+      border-color: rgba(101, 163, 13, 0.22);
+      box-shadow: 0 20px 50px rgba(101, 163, 13, 0.12), 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 0 #ffffff;
     }
 
-    body.light-mode .zen-tile::before {
-      background: linear-gradient(160deg, rgba(163, 255, 18, 0.45), rgba(132, 204, 22, 0.15) 60%, transparent) !important;
+    body.light-mode .zen-quick-btn {
+      background: #ffffff;
+      border-color: rgba(0, 0, 0, 0.08);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
     }
 
-    body.light-mode .zen-tile::after {
-      background: linear-gradient(135deg, rgba(163, 255, 18, 0.3), rgba(255, 255, 255, 0.8)) !important;
-      opacity: 0.7 !important;
+    body.light-mode .zen-quick-btn:hover {
+      background: linear-gradient(145deg, #f7fee7, #ecfccb);
+      border-color: rgba(101, 163, 13, 0.55);
+      box-shadow: 0 12px 28px rgba(101, 163, 13, 0.18);
     }
 
-    body.light-mode .zen-tile svg {
-      color: #1f3d0c !important;
+    body.light-mode .zen-quick-orb {
+      background: rgba(163, 255, 18, 0.25);
+      border-color: rgba(101, 163, 13, 0.35);
+      color: #3f6212;
+      box-shadow: none;
+    }
+
+    body.light-mode .zen-quick-btn:hover .zen-quick-orb {
+      background: #a3ff12;
+      color: #0c0f0a;
+      border-color: #65a30d;
+    }
+
+    body.light-mode .zen-quick-title {
+      color: #0c0f0a;
+    }
+
+    body.light-mode .zen-quick-meta {
+      color: #4b5563;
+    }
+
+    body.light-mode .zen-quick-btn:hover .zen-quick-meta {
+      color: #3f6212;
+    }
+
+    body.light-mode .zen-quick-arrow {
+      background: rgba(0, 0, 0, 0.04);
+      border-color: rgba(0, 0, 0, 0.08);
+      color: #4b5563;
+    }
+
+    body.light-mode .zen-quick-btn:hover .zen-quick-arrow {
+      background: #0c0f0a;
+      border-color: #0c0f0a;
+      color: #a3ff12;
     }
 
     /* High contrast primary and glass CTA buttons */
@@ -1546,6 +1738,19 @@ html {
 
     body.light-mode .zen-track input::placeholder {
       color: rgba(0, 0, 0, 0.45);
+    }
+
+    body.light-mode .zen-hero-seam {
+      background: linear-gradient(to bottom, transparent 0%, rgba(247, 250, 244, 0.45) 35%, rgba(247, 250, 244, 0.9) 78%, #f7faf4 100%);
+    }
+
+    body.light-mode .zen-hero-seam-glow {
+      background: radial-gradient(ellipse at center, rgba(132, 204, 22, 0.22) 0%, transparent 70%);
+    }
+
+    body.light-mode .zen-hero-seam-line {
+      background: linear-gradient(90deg, transparent 0%, rgba(101, 163, 13, 0.08) 15%, rgba(101, 163, 13, 0.4) 50%, rgba(101, 163, 13, 0.08) 85%, transparent 100%);
+      box-shadow: 0 0 14px rgba(101, 163, 13, 0.25);
     }
 
     body.light-mode .about-services-stack {
