@@ -54,12 +54,63 @@ A state-of-the-art campus issue reporting, tracking, and facilities resolution p
 - High-visibility emergency numbers card with alert indicator.
 - Department contact directory cards with one-click direct phone dialers.
 
-### 7. Staff Management Portal (`#/staff`)
+### 7. Campus Identity & Login (`#/login`)
+- **Dual Authentication Modes**:
+  - **Live Supabase Auth**: Secure cloud login and registration via Supabase (`signInWithPassword` & `signUp`).
+  - **Local Sandbox Auth**: Offline-first instant demo mode with automatic fallback when running without cloud credentials.
+- **Role Switching**:
+  - **Student Portal**: Access reported issues, track resolutions, and request maintenance.
+  - **Campus Staff & Operations**: Authenticates directly with the Staff Portal, bypassing manual PIN entry.
+- **1-Click Instant Demo Login**:
+  - `Demo Student` (Rohan Verma — Aryabhatta Hostel)
+  - `Demo Staff Lead` (Rajesh Kumar — Senior IT Lead)
+- **User Profile Dashboard**:
+  - Displays user initials avatar, role badge, email, campus department, reported ticket statistics, and quick navigation.
+  - Dynamic header navigation slot displaying current user state and one-click logout.
+
+### 8. Staff Management Portal (`#/staff`)
 - Secure authentication with salted SHA-256 validation, cryptographic session tokens, and brute-force lockout protection (`Demo PIN: 1234`).
 - **Student CSAT Metrics**: Live calculation of average student satisfaction rating (e.g. `4.9 ★`).
 - **Technician Dispatch Queue**: Inline dropdown to assign specific facility personnel (*Network Lead, AV Specialist, Estate & Plumbing, HVAC & Electrical, Safety Officer*).
 - Category breakdown metrics and progress visualization bars.
 - One-click CSV export of all campus requests including technician assignment and satisfaction metrics.
+
+---
+
+## 🗄️ Supabase Cloud Backend Integration
+
+Unidesk features plug-and-play **Supabase** cloud database and authentication integration:
+
+- **Client SDK**: Powered by `@supabase/supabase-js@2.48.1`.
+- **Live Cloud Sync**: Automatically synchronizes new tickets, upvotes, status transitions, technician assignments, and discussion comments with the remote `tickets` table.
+- **In-App Configuration Drawer**: Enter your Supabase Project URL and Public Anon Key directly from the UI with an instant connection test tool.
+- **1-Click SQL Schema Setup**: Includes a copyable SQL snippet ready to run in the Supabase SQL Editor:
+
+```sql
+CREATE TABLE IF NOT EXISTS public.tickets (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  department TEXT,
+  priority TEXT NOT NULL DEFAULT 'Medium',
+  location TEXT NOT NULL,
+  contact_name TEXT,
+  description TEXT NOT NULL,
+  upvotes INTEGER DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'Open',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  timeline JSONB DEFAULT '[]'::jsonb,
+  assignee TEXT DEFAULT 'Unassigned',
+  comments JSONB DEFAULT '[]'::jsonb,
+  rating INTEGER,
+  feedback JSONB,
+  image TEXT
+);
+
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public access for tickets" ON public.tickets;
+CREATE POLICY "Public access for tickets" ON public.tickets FOR ALL USING (true) WITH CHECK (true);
+```
 
 ---
 
